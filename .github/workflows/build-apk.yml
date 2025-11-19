@@ -22,6 +22,14 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v2
       
+    - name: Install Gradle
+      run: |
+        wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
+        sudo unzip -q gradle-8.5-bin.zip -d /opt
+        sudo mv /opt/gradle-8.5 /opt/gradle
+        echo "$PATH" | grep -q "/opt/gradle/bin" || echo "/opt/gradle/bin" >> $GITHUB_PATH
+        export PATH="/opt/gradle/bin:$PATH"
+        
     - name: Copy files to assets
       run: |
         mkdir -p android/app/src/main/assets
@@ -38,24 +46,7 @@ jobs:
     - name: Create Gradle wrapper
       working-directory: android
       run: |
-        # Download Gradle wrapper from official source
-        mkdir -p gradle/wrapper
-        curl -L https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar || \
-        curl -L https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar || \
-        wget -O gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar
-        echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
-        echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
-        echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
-        echo "networkTimeout=10000" >> gradle/wrapper/gradle-wrapper.properties
-        echo "validateDistributionUrl=true" >> gradle/wrapper/gradle-wrapper.properties
-        echo "zipStoreBase=GRADLE_USER_HOME" >> gradle/wrapper/gradle-wrapper.properties
-        echo "zipStorePath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
-        echo '#!/bin/sh' > gradlew
-        echo 'exec java -jar "$(dirname "$0")/gradle/wrapper/gradle-wrapper.jar" "$@"' >> gradlew
-        chmod +x gradlew
-        # Verify the JAR file
-        file gradle/wrapper/gradle-wrapper.jar
-        ls -lh gradle/wrapper/gradle-wrapper.jar
+        gradle wrapper --gradle-version 8.5
         
     - name: Build APK
       working-directory: android
