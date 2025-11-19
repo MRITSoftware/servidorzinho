@@ -143,13 +143,15 @@ public class MainActivity extends AppCompatActivity {
                 setupAutoStart();
 
                 handler.post(() -> {
-                    updateStatus("✅ Instalação concluída!\n\n" +
-                            "O servidor está pronto.\n" +
-                            "Abra o Termux para iniciar o servidor.");
+                    updateStatus("✅ Configuração concluída!\n\n" +
+                            "1. Abra o Termux uma vez\n" +
+                            "2. A instalação iniciará automaticamente\n" +
+                            "3. O servidor iniciará sozinho após instalar\n\n" +
+                            "Você pode fechar este app.");
                     installButton.setText("Reinstalar");
                     installButton.setEnabled(true);
 
-                    // Inicia o serviço em background
+                    // Inicia o serviço em background para monitorar
                     startServerService();
                 });
 
@@ -172,39 +174,73 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void copyFilesToTermux() throws Exception {
-        // Sempre copia para o diretório do app primeiro (mais confiável)
+        // Sempre copia para o diretório do app primeiro (backup)
         File storageDir = new File(getExternalFilesDir(null), "servidorzinho");
         storageDir.mkdirs();
         copyAssetsToDir(storageDir);
         
-        // Tenta copiar para Termux se possível
+        // Tenta copiar para Termux e configurar auto-inicialização
         File termuxHome = new File("/data/data/com.termux/files/home");
-        if (termuxHome.exists() && termuxHome.canWrite()) {
+        if (termuxHome.exists()) {
             try {
                 File termuxDir = new File(termuxHome, "servidorzinho");
                 termuxDir.mkdirs();
                 copyAssetsToDir(termuxDir);
+                
+                // Cria script de inicialização automática no Termux
+                setupTermuxAutoStart(termuxHome);
+                
                 handler.post(() -> {
-                    updateStatus("✅ Arquivos copiados para Termux!\n\n" +
-                            "Agora abra o Termux e execute:\n" +
-                            "cd ~/servidorzinho\n" +
-                            "bash INSTALAR_AUTO.sh");
+                    updateStatus("✅ Arquivos copiados!\n\n" +
+                            "Configurando instalação automática...");
                 });
                 return;
             } catch (Exception e) {
-                // Se falhar, usa o fallback
+                android.util.Log.e("MainActivity", "Erro ao copiar para Termux: " + e.getMessage());
             }
         }
         
-        // Fallback: instrui usuário a copiar manualmente
+        // Se não conseguir acessar diretamente, usa método alternativo
         handler.post(() -> {
-            updateStatus("✅ Arquivos copiados!\n\n" +
-                    "Agora abra o Termux e execute:\n\n" +
-                    "mkdir -p ~/servidorzinho\n" +
-                    "cp -r " + storageDir.getAbsolutePath() + "/* ~/servidorzinho/\n" +
-                    "cd ~/servidorzinho\n" +
-                    "bash INSTALAR_AUTO.sh");
+            updateStatus("⚠️ Não foi possível acessar Termux diretamente.\n\n" +
+                    "Por favor, abra o Termux uma vez e feche.\n" +
+                    "Depois tente instalar novamente.");
         });
+    }
+    
+    private void setupTermuxAutoStart(File termuxHome) throws Exception {
+        // Cria script que será executado automaticamente quando Termux abrir
+        File bashrc = new File(termuxHome, ".bashrc");
+        String autoInstallScript = 
+            "\n# MRIT Server Local - Auto Install\n" +
+            "if [ ! -f ~/servidorzinho/.installed ] && [ -d ~/servidorzinho ]; then\n" +
+            "    cd ~/servidorzinho\n" +
+            "    bash INSTALAR_AUTO.sh > ~/servidorzinho/install.log 2>&1\n" +
+            "    touch ~/servidorzinho/.installed\n" +
+            "    cd ~/servidorzinho && bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
+            "fi\n" +
+            "# Auto-start server if not running\n" +
+            "if [ -d ~/servidorzinho ] && [ -f ~/servidorzinho/.installed ]; then\n" +
+            "    if [ ! -f ~/servidorzinho/servidor.pid ] || ! ps -p $(cat ~/servidorzinho/servidor.pid) > /dev/null 2>&1; then\n" +
+            "        cd ~/servidorzinho && bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
+            "    fi\n" +
+            "fi\n";
+        
+        // Adiciona ao .bashrc se ainda não estiver lá
+        String bashrcContent = "";
+        if (bashrc.exists()) {
+            java.io.FileInputStream fis = new java.io.FileInputStream(bashrc);
+            byte[] data = new byte[(int) bashrc.length()];
+            fis.read(data);
+            fis.close();
+            bashrcContent = new String(data);
+        }
+        
+        if (!bashrcContent.contains("MRIT Server Local")) {
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(bashrc, true);
+            fos.write(autoInstallScript.getBytes());
+            fos.close();
+        }
     }
 
     private void copyAssetsToDir(File targetDir) throws Exception {
@@ -243,27 +279,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void installDependencies() throws Exception {
-        // Cria script de instalação que será executado via Termux
-        // Usa Intent para abrir Termux com comando
-        String installCommand = "cd ~/servidorzinho && " +
-                "pkg update -y && " +
-                "pkg install -y python && " +
-                "pip install tinytuya && " +
-                "bash INSTALAR_AUTO.sh";
-
-        // Salva comando em arquivo temporário
-        File cmdFile = new File(getCacheDir(), "install.sh");
-        FileOutputStream fos = new FileOutputStream(cmdFile);
-        fos.write(installCommand.getBytes());
-        fos.close();
-
-        // Abre Termux (usuário precisa executar manualmente na primeira vez)
+        // A instalação será feita automaticamente quando o Termux abrir
+        // via script no .bashrc que criamos
         handler.post(() -> {
-            updateStatus("✅ Arquivos copiados!\n\n" +
-                    "Agora abra o Termux e execute:\n" +
-                    "cd ~/servidorzinho\n" +
-                    "bash INSTALAR_AUTO.sh\n\n" +
-                    "Ou use o comando 'servidor-auto' depois.");
+            updateStatus("✅ Configuração concluída!\n\n" +
+                    "Abra o Termux uma vez para iniciar a instalação automática.\n" +
+                    "O servidor iniciará automaticamente após a instalação.");
         });
     }
 
