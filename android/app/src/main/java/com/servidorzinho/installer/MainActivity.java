@@ -82,9 +82,30 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean isTermuxInstalled() {
         try {
-            getPackageManager().getPackageInfo("com.termux", 0);
-            return true;
-        } catch (PackageManager.NameNotFoundException e) {
+            // Tenta diferentes package names do Termux
+            String[] termuxPackages = {
+                "com.termux",
+                "com.termux.api",  // Termux API (versão alternativa)
+                "com.termux.boot"  // Termux Boot
+            };
+            
+            for (String pkg : termuxPackages) {
+                try {
+                    getPackageManager().getPackageInfo(pkg, 0);
+                    return true;
+                } catch (PackageManager.NameNotFoundException e) {
+                    // Continua tentando
+                }
+            }
+            
+            // Verifica se Termux está instalado via Intent
+            Intent intent = getPackageManager().getLaunchIntentForPackage("com.termux");
+            if (intent != null) {
+                return true;
+            }
+            
+            return false;
+        } catch (Exception e) {
             return false;
         }
     }
@@ -252,8 +273,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startServerService() {
-        Intent serviceIntent = new Intent(this, ServerService.class);
-        ContextCompat.startForegroundService(this, serviceIntent);
+        try {
+            Intent serviceIntent = new Intent(this, ServerService.class);
+            ContextCompat.startForegroundService(this, serviceIntent);
+        } catch (Exception e) {
+            // Se falhar, não é crítico - o servidor pode rodar sem o serviço
+            log("Serviço não iniciado: " + e.getMessage());
+        }
+    }
+    
+    private void log(String msg) {
+        android.util.Log.d("Servidorzinho", msg);
     }
 
     private void updateStatus(String text) {

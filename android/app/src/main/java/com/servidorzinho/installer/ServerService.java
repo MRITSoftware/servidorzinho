@@ -17,8 +17,13 @@ public class ServerService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        createNotificationChannel();
-        startForeground(NOTIFICATION_ID, createNotification());
+        try {
+            createNotificationChannel();
+            startForeground(NOTIFICATION_ID, createNotification());
+        } catch (Exception e) {
+            // Se falhar ao iniciar foreground, continua como serviço normal
+            android.util.Log.e("ServerService", "Erro ao iniciar foreground: " + e.getMessage());
+        }
     }
 
     @Override
