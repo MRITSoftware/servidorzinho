@@ -35,6 +35,11 @@ jobs:
     - name: Grant execute permission
       run: chmod +x android/app/src/main/assets/*.sh
       
+    - name: Create Gradle wrapper
+      working-directory: android
+      run: |
+        gradle wrapper --gradle-version 8.4
+        
     - name: Build APK
       working-directory: android
       run: |
