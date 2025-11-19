@@ -43,11 +43,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean checkPermissions() {
+        // Android 11+ não precisa de WRITE_EXTERNAL_STORAGE para arquivos próprios do app
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            return true; // Android 11+ usa scoped storage
+        }
         return ContextCompat.checkSelfPermission(this,
                 android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void requestPermissions() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            // Android 11+ não precisa pedir permissão
+            startInstallation();
+            return;
+        }
         ActivityCompat.requestPermissions(this,
                 new String[] { android.Manifest.permission.WRITE_EXTERNAL_STORAGE },
                 PERMISSION_REQUEST_CODE);
@@ -142,26 +151,39 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void copyFilesToTermux() throws Exception {
-        // Copia para o diretório do Termux (~/servidorzinho)
-        // O Termux usa: /data/data/com.termux/files/home/
+        // Sempre copia para o diretório do app primeiro (mais confiável)
+        File storageDir = new File(getExternalFilesDir(null), "servidorzinho");
+        storageDir.mkdirs();
+        copyAssetsToDir(storageDir);
+        
+        // Tenta copiar para Termux se possível
         File termuxHome = new File("/data/data/com.termux/files/home");
-        if (!termuxHome.exists()) {
-            // Fallback: copia para storage externo e instrui usuário
-            File storageDir = new File(getExternalFilesDir(null), "servidorzinho");
-            storageDir.mkdirs();
-            copyAssetsToDir(storageDir);
-            handler.post(() -> {
-                updateStatus("⚠️ Termux não encontrado.\n\n" +
-                        "Por favor, abra o Termux uma vez e execute:\n" +
-                        "mkdir -p ~/servidorzinho\n" +
-                        "cp -r " + storageDir.getAbsolutePath() + "/* ~/servidorzinho/");
-            });
-            return;
+        if (termuxHome.exists() && termuxHome.canWrite()) {
+            try {
+                File termuxDir = new File(termuxHome, "servidorzinho");
+                termuxDir.mkdirs();
+                copyAssetsToDir(termuxDir);
+                handler.post(() -> {
+                    updateStatus("✅ Arquivos copiados para Termux!\n\n" +
+                            "Agora abra o Termux e execute:\n" +
+                            "cd ~/servidorzinho\n" +
+                            "bash INSTALAR_AUTO.sh");
+                });
+                return;
+            } catch (Exception e) {
+                // Se falhar, usa o fallback
+            }
         }
-
-        File termuxDir = new File(termuxHome, "servidorzinho");
-        termuxDir.mkdirs();
-        copyAssetsToDir(termuxDir);
+        
+        // Fallback: instrui usuário a copiar manualmente
+        handler.post(() -> {
+            updateStatus("✅ Arquivos copiados!\n\n" +
+                    "Agora abra o Termux e execute:\n\n" +
+                    "mkdir -p ~/servidorzinho\n" +
+                    "cp -r " + storageDir.getAbsolutePath() + "/* ~/servidorzinho/\n" +
+                    "cd ~/servidorzinho\n" +
+                    "bash INSTALAR_AUTO.sh");
+        });
     }
 
     private void copyAssetsToDir(File targetDir) throws Exception {
