@@ -9,7 +9,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Servidorzinho"
+        android:text="MRIT Server Local"
         android:textSize="24sp"
         android:textStyle="bold"
         android:layout_marginBottom="32dp" />

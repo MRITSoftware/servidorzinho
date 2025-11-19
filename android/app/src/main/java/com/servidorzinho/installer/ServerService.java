@@ -11,7 +11,7 @@ import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
 
 public class ServerService extends Service {
-    private static final String CHANNEL_ID = "servidorzinho_channel";
+    private static final String CHANNEL_ID = "mrit_server_channel";
     private static final int NOTIFICATION_ID = 1;
 
     @Override
@@ -56,7 +56,7 @@ public class ServerService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Servidorzinho",
+                    "MRIT Server Local",
                     NotificationManager.IMPORTANCE_LOW);
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {

@@ -6,6 +6,6 @@ pluginManagement {
     }
 }
 
-rootProject.name = "ServidorzinhoInstaller"
+rootProject.name = "MRITServerLocal"
 include ':app'
 
