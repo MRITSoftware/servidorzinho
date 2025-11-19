@@ -38,9 +38,11 @@ jobs:
     - name: Create Gradle wrapper
       working-directory: android
       run: |
-        # Download Gradle wrapper manually
+        # Download Gradle wrapper from official source
         mkdir -p gradle/wrapper
-        curl -L https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
+        curl -L https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar || \
+        curl -L https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar || \
+        wget -O gradle/wrapper/gradle-wrapper.jar https://raw.githubusercontent.com/gradle/gradle/v8.5.0/gradle/wrapper/gradle-wrapper.jar
         echo "distributionBase=GRADLE_USER_HOME" > gradle/wrapper/gradle-wrapper.properties
         echo "distributionPath=wrapper/dists" >> gradle/wrapper/gradle-wrapper.properties
         echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip" >> gradle/wrapper/gradle-wrapper.properties
@@ -51,6 +53,9 @@ jobs:
         echo '#!/bin/sh' > gradlew
         echo 'exec java -jar "$(dirname "$0")/gradle/wrapper/gradle-wrapper.jar" "$@"' >> gradlew
         chmod +x gradlew
+        # Verify the JAR file
+        file gradle/wrapper/gradle-wrapper.jar
+        ls -lh gradle/wrapper/gradle-wrapper.jar
         
     - name: Build APK
       working-directory: android
