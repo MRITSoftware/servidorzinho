@@ -43,7 +43,7 @@ jobs:
     - name: Create Gradle wrapper
       working-directory: android
       run: |
-        gradle wrapper --gradle-version 8.4
+        gradle wrapper --gradle-version 8.5
         
     - name: Build APK
       working-directory: android
