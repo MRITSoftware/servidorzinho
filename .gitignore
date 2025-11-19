@@ -1,0 +1,25 @@
+# Android
+android/.gradle/
+android/app/build/
+android/.idea/
+android/local.properties
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.log
+local_config.json
+servidor.pid
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
