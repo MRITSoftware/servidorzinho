@@ -31,11 +31,19 @@ echo ""
 # 4. Verifica tinytuya
 echo "4. Verificando tinytuya..."
 if ! python3 -c "import tinytuya" 2>/dev/null; then
-    echo "⚠️  tinytuya não instalado. Instalando..."
-    python3 -m pip install tinytuya --quiet || {
-        echo "❌ Erro ao instalar tinytuya"
+    echo "⚠️  tinytuya não instalado."
+    echo "📦 Executando instalação completa (isso pode demorar)..."
+    if [ -f "INSTALAR_AUTO.sh" ]; then
+        bash INSTALAR_AUTO.sh || {
+            echo "❌ Erro na instalação automática"
+            echo "💡 Tente executar manualmente: bash INSTALAR_AUTO.sh"
+            exit 1
+        }
+    else
+        echo "❌ Script INSTALAR_AUTO.sh não encontrado!"
+        echo "💡 Execute primeiro: bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh"
         exit 1
-    }
+    fi
 fi
 echo "✅ tinytuya instalado"
 echo ""
