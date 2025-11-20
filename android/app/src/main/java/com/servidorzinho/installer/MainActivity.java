@@ -89,29 +89,19 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean isTermuxInstalled() {
         try {
-            // Tenta diferentes package names do Termux
-            String[] termuxPackages = {
-                    "com.termux",
-                    "com.termux.api", // Termux API (versão alternativa)
-                    "com.termux.boot" // Termux Boot
-            };
-
-            for (String pkg : termuxPackages) {
-                try {
-                    getPackageManager().getPackageInfo(pkg, 0);
-                    return true;
-                } catch (PackageManager.NameNotFoundException e) {
-                    // Continua tentando
-                }
-            }
-
-            // Verifica se Termux está instalado via Intent
+            // Método mais simples: tenta abrir o Termux
             Intent intent = getPackageManager().getLaunchIntentForPackage("com.termux");
             if (intent != null) {
                 return true;
             }
-
-            return false;
+            
+            // Tenta verificar via PackageManager
+            try {
+                getPackageManager().getPackageInfo("com.termux", PackageManager.GET_ACTIVITIES);
+                return true;
+            } catch (PackageManager.NameNotFoundException e) {
+                return false;
+            }
         } catch (Exception e) {
             return false;
         }
@@ -185,36 +175,34 @@ public class MainActivity extends AppCompatActivity {
         if (checkPermissions()) {
             new Thread(() -> {
                 try {
-                    // Garante que arquivos foram copiados
-                    handler.post(() -> updateStatus("Preparando arquivos..."));
+                    handler.post(() -> updateStatus("Copiando arquivos..."));
                     copyFilesToTermux();
-                    Thread.sleep(1000);
+                    Thread.sleep(1500);
                 } catch (Exception e) {
                     android.util.Log.e("MainActivity", "Erro: " + e.getMessage());
                 }
                 
-                // Abre o Termux com comando para executar o script
                 handler.post(() -> {
                     try {
                         Intent intent = getPackageManager().getLaunchIntentForPackage("com.termux");
                         if (intent != null) {
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            
                             startActivity(intent);
+                            
                             updateStatus("✅ Termux aberto!\n\n" +
-                                    "Execute no Termux:\n\n" +
-                                    "bash /sdcard/Download/MRIT_Server/copy_to_termux.sh\n\n" +
-                                    "Ou manualmente:\n" +
-                                    "mkdir -p ~/servidorzinho\n" +
-                                    "cp -r /sdcard/Download/MRIT_Server/* ~/servidorzinho/\n" +
-                                    "cd ~/servidorzinho\n" +
-                                    "bash INSTALAR_AUTO.sh");
+                                    "Execute este comando no Termux:\n\n" +
+                                    "bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh\n\n" +
+                                    "Ou se não funcionar:\n" +
+                                    "bash /sdcard/Download/MRIT_Server/copy_to_termux.sh");
                         } else {
+                            // Abre Play Store para instalar Termux
                             installTermux();
-                            updateStatus("⚠️ Termux não encontrado.\n\nInstale o Termux primeiro.");
+                            updateStatus("⚠️ Termux não encontrado.\n\n" +
+                                    "Abrindo Play Store para instalar...");
                         }
                     } catch (Exception e) {
-                        updateStatus("❌ Erro: " + e.getMessage());
+                        updateStatus("❌ Erro ao abrir Termux.\n\n" +
+                                "Instale o Termux manualmente e tente novamente.");
                     }
                 });
             }).start();
@@ -224,63 +212,61 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void copyFilesToTermux() throws Exception {
-        // Copia para storage compartilhado (acessível pelo Termux)
-        // Usa /sdcard/Download que é o caminho padrão acessível
-        File downloadsDir;
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            // Android 10+ usa scoped storage, mas /sdcard ainda funciona para Termux
-            downloadsDir = new File("/sdcard/Download/MRIT_Server");
-        } else {
-            downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOWNLOADS);
-            downloadsDir = new File(downloadsDir, "MRIT_Server");
-        }
-        downloadsDir.mkdirs();
-        copyAssetsToDir(downloadsDir);
+        // Copia para múltiplos locais para garantir acesso
+        File[] targetDirs = {
+            new File("/sdcard/Download/MRIT_Server"),
+            new File("/storage/emulated/0/Download/MRIT_Server"),
+            new File(getExternalFilesDir(null), "servidorzinho")
+        };
         
-        // Também copia para diretório do app (backup)
-        File storageDir = new File(getExternalFilesDir(null), "servidorzinho");
-        storageDir.mkdirs();
-        copyAssetsToDir(storageDir);
-
-        // Cria script que o Termux pode executar para copiar automaticamente
-        createTermuxCopyScript(downloadsDir);
+        for (File dir : targetDirs) {
+            try {
+                dir.mkdirs();
+                copyAssetsToDir(dir);
+                createTermuxCopyScript(dir);
+            } catch (Exception e) {
+                android.util.Log.e("MainActivity", "Erro ao copiar para " + dir + ": " + e.getMessage());
+            }
+        }
         
         handler.post(() -> {
             updateStatus("✅ Arquivos copiados!\n\n" +
-                    "Local: /sdcard/Download/MRIT_Server\n\n" +
-                    "Clique em 'Abrir Termux e Instalar' para continuar.");
+                    "Local: Download/MRIT_Server\n\n" +
+                    "No Termux, execute:\n" +
+                    "bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh");
         });
     }
-    
+
     private void createTermuxCopyScript(File sourceDir) throws Exception {
         // Cria script que o Termux executa automaticamente
         File scriptFile = new File(sourceDir, "copy_to_termux.sh");
         // Usa caminho /sdcard que o Termux entende
         String sourcePath = "/sdcard/Download/MRIT_Server";
-        String scriptContent = 
-            "#!/bin/bash\n" +
-            "# Script para copiar arquivos para Termux\n" +
-            "echo 'Copiando arquivos...'\n" +
-            "mkdir -p ~/servidorzinho\n" +
-            "cp -r " + sourcePath + "/* ~/servidorzinho/ 2>/dev/null || cp -r /storage/emulated/0/Download/MRIT_Server/* ~/servidorzinho/ 2>/dev/null || true\n" +
-            "chmod +x ~/servidorzinho/*.sh 2>/dev/null || true\n" +
-            "cd ~/servidorzinho\n" +
-            "if [ ! -f .installed ]; then\n" +
-            "    echo 'Instalando dependências...'\n" +
-            "    bash INSTALAR_AUTO.sh > install.log 2>&1\n" +
-            "    touch .installed\n" +
-            "    echo 'Iniciando servidor...'\n" +
-            "    bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
-            "    echo 'Servidor iniciado!'\n" +
-            "fi\n" +
-            "# Auto-start server if not running\n" +
-            "if [ -d ~/servidorzinho ] && [ -f ~/servidorzinho/.installed ]; then\n" +
-            "    if [ ! -f ~/servidorzinho/servidor.pid ] || ! ps -p $(cat ~/servidorzinho/servidor.pid) > /dev/null 2>&1; then\n" +
-            "        cd ~/servidorzinho && bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
-            "    fi\n" +
-            "fi\n";
-        
+        String scriptContent = "#!/bin/bash\n" +
+                "# Script para copiar arquivos para Termux\n" +
+                "echo 'Copiando arquivos...'\n" +
+                "mkdir -p ~/servidorzinho\n" +
+                "cp -r " + sourcePath
+                + "/* ~/servidorzinho/ 2>/dev/null || cp -r /storage/emulated/0/Download/MRIT_Server/* ~/servidorzinho/ 2>/dev/null || true\n"
+                +
+                "chmod +x ~/servidorzinho/*.sh 2>/dev/null || true\n" +
+                "cd ~/servidorzinho\n" +
+                "if [ ! -f .installed ]; then\n" +
+                "    echo 'Instalando dependências...'\n" +
+                "    bash INSTALAR_AUTO.sh > install.log 2>&1\n" +
+                "    touch .installed\n" +
+                "    echo 'Iniciando servidor...'\n" +
+                "    bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
+                "    echo 'Servidor iniciado!'\n" +
+                "fi\n" +
+                "# Auto-start server if not running\n" +
+                "if [ -d ~/servidorzinho ] && [ -f ~/servidorzinho/.installed ]; then\n" +
+                "    if [ ! -f ~/servidorzinho/servidor.pid ] || ! ps -p $(cat ~/servidorzinho/servidor.pid) > /dev/null 2>&1; then\n"
+                +
+                "        cd ~/servidorzinho && bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
+                "    fi\n" +
+                "fi\n";
+
         FileOutputStream fos = new FileOutputStream(scriptFile);
         fos.write(scriptContent.getBytes());
         fos.close();
@@ -288,36 +274,30 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupTermuxAutoStart() throws Exception {
-        // Tenta adicionar script ao .bashrc do Termux via storage compartilhado
-        File downloadsDir;
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            downloadsDir = new File("/sdcard/Download/MRIT_Server");
-        } else {
-            downloadsDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOWNLOADS), "MRIT_Server");
-        }
-        File bashrcScript = new File(downloadsDir, "setup_bashrc.sh");
-        
-        String bashrcContent = 
-            "#!/bin/bash\n" +
-            "# Adiciona auto-start ao .bashrc do Termux\n" +
-            "if ! grep -q 'MRIT Server Local' ~/.bashrc 2>/dev/null; then\n" +
-            "    echo '' >> ~/.bashrc\n" +
-            "    echo '# MRIT Server Local - Auto Install' >> ~/.bashrc\n" +
-            "    echo 'if [ -d ~/servidorzinho ] && [ ! -f ~/servidorzinho/.installed ]; then' >> ~/.bashrc\n" +
-            "    echo '    cd ~/servidorzinho' >> ~/.bashrc\n" +
-            "    echo '    bash INSTALAR_AUTO.sh > install.log 2>&1' >> ~/.bashrc\n" +
-            "    echo '    touch .installed' >> ~/.bashrc\n" +
-            "    echo '    bash iniciar_auto.sh > /dev/null 2>&1 &' >> ~/.bashrc\n" +
-            "    echo 'fi' >> ~/.bashrc\n" +
-            "    echo '# Auto-start server if not running' >> ~/.bashrc\n" +
-            "    echo 'if [ -d ~/servidorzinho ] && [ -f ~/servidorzinho/.installed ]; then' >> ~/.bashrc\n" +
-            "    echo '    if [ ! -f ~/servidorzinho/servidor.pid ] || ! ps -p \\$(cat ~/servidorzinho/servidor.pid) > /dev/null 2>&1; then' >> ~/.bashrc\n" +
-            "    echo '        cd ~/servidorzinho && bash iniciar_auto.sh > /dev/null 2>&1 &' >> ~/.bashrc\n" +
-            "    echo '    fi' >> ~/.bashrc\n" +
-            "    echo 'fi' >> ~/.bashrc\n" +
-            "fi\n";
-        
+        // Não precisa mais - o script copy_to_termux.sh já faz tudo
+        // Mantido para compatibilidade
+    }
+
+        String bashrcContent = "#!/bin/bash\n" +
+                "# Adiciona auto-start ao .bashrc do Termux\n" +
+                "if ! grep -q 'MRIT Server Local' ~/.bashrc 2>/dev/null; then\n" +
+                "    echo '' >> ~/.bashrc\n" +
+                "    echo '# MRIT Server Local - Auto Install' >> ~/.bashrc\n" +
+                "    echo 'if [ -d ~/servidorzinho ] && [ ! -f ~/servidorzinho/.installed ]; then' >> ~/.bashrc\n" +
+                "    echo '    cd ~/servidorzinho' >> ~/.bashrc\n" +
+                "    echo '    bash INSTALAR_AUTO.sh > install.log 2>&1' >> ~/.bashrc\n" +
+                "    echo '    touch .installed' >> ~/.bashrc\n" +
+                "    echo '    bash iniciar_auto.sh > /dev/null 2>&1 &' >> ~/.bashrc\n" +
+                "    echo 'fi' >> ~/.bashrc\n" +
+                "    echo '# Auto-start server if not running' >> ~/.bashrc\n" +
+                "    echo 'if [ -d ~/servidorzinho ] && [ -f ~/servidorzinho/.installed ]; then' >> ~/.bashrc\n" +
+                "    echo '    if [ ! -f ~/servidorzinho/servidor.pid ] || ! ps -p \\$(cat ~/servidorzinho/servidor.pid) > /dev/null 2>&1; then' >> ~/.bashrc\n"
+                +
+                "    echo '        cd ~/servidorzinho && bash iniciar_auto.sh > /dev/null 2>&1 &' >> ~/.bashrc\n" +
+                "    echo '    fi' >> ~/.bashrc\n" +
+                "    echo 'fi' >> ~/.bashrc\n" +
+                "fi\n";
+
         FileOutputStream fos = new FileOutputStream(bashrcScript);
         fos.write(bashrcContent.getBytes());
         fos.close();
