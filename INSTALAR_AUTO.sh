@@ -17,12 +17,21 @@ if ! command -v python3 &> /dev/null; then
     pkg install -y python >/dev/null 2>&1 || true
 fi
 
+echo "📚 Instalando dependências de build..."
+# Instala ferramentas necessárias para compilar cryptography
+pkg install -y rust binutils build-essential python-dev libffi-dev openssl-dev 2>/dev/null || true
+
 echo "📚 Instalando bibliotecas Python..."
 python3 -m pip install --upgrade pip --quiet 2>/dev/null || true
+echo "   Instalando cryptography (pode demorar)..."
+python3 -m pip install cryptography --quiet 2>/dev/null || {
+    echo "   ⚠️ Tentando instalação sem cache..."
+    python3 -m pip install --no-cache-dir cryptography --quiet 2>/dev/null || true
+}
 echo "   Instalando tinytuya..."
 python3 -m pip install tinytuya --quiet 2>/dev/null || {
     echo "   ⚠️ Tentando instalação alternativa..."
-    pip3 install tinytuya --quiet 2>/dev/null || true
+    python3 -m pip install --no-cache-dir tinytuya --quiet 2>/dev/null || true
 }
 
 # Verifica se instalou

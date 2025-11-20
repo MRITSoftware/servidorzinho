@@ -25,12 +25,19 @@ fi
 
 # Verifica se tinytuya está instalado
 if ! python3 -c "import tinytuya" 2>/dev/null; then
-    echo "⚠️  tinytuya não encontrado. Instalando..."
-    python3 -m pip install tinytuya --quiet 2>/dev/null || {
+    echo "⚠️  tinytuya não encontrado."
+    echo "📦 Instalando dependências de build (pode demorar alguns minutos)..."
+    pkg install -y rust binutils build-essential python-dev libffi-dev openssl-dev 2>/dev/null || true
+    echo "📚 Instalando cryptography..."
+    python3 -m pip install --no-cache-dir cryptography 2>&1 | tail -5
+    echo "📚 Instalando tinytuya..."
+    python3 -m pip install --no-cache-dir tinytuya 2>&1 | tail -5
+    if ! python3 -c "import tinytuya" 2>/dev/null; then
         echo "❌ Erro ao instalar tinytuya"
-        echo "Execute: pip install tinytuya"
+        echo "Execute: bash INSTALAR_AUTO.sh"
         exit 1
-    }
+    fi
+    echo "✅ tinytuya instalado com sucesso!"
 fi
 
 # Verifica se já está rodando
