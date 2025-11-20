@@ -78,6 +78,15 @@
         android:text="📊 Copiar: Status"
         android:textSize="14sp"
         android:padding="10dp"
+        android:layout_marginBottom="4dp" />
+
+    <Button
+        android:id="@+id/copyLogsButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="📋 Copiar: Ver Logs"
+        android:textSize="14sp"
+        android:padding="10dp"
         android:layout_marginBottom="16dp" />
 
     <TextView

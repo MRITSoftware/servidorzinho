@@ -27,6 +27,7 @@ public class MainActivity extends AppCompatActivity {
     private Button copyInstallButton;
     private Button copyStartButton;
     private Button copyStatusButton;
+    private Button copyLogsButton;
     private Handler handler;
     private ClipboardManager clipboard;
 
@@ -42,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
         copyInstallButton = findViewById(R.id.copyInstallButton);
         copyStartButton = findViewById(R.id.copyStartButton);
         copyStatusButton = findViewById(R.id.copyStatusButton);
+        copyLogsButton = findViewById(R.id.copyLogsButton);
         clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         
         installButton.setOnClickListener(v -> {
@@ -259,38 +261,43 @@ public class MainActivity extends AppCompatActivity {
         File scriptFile = new File(sourceDir, "copy_to_termux.sh");
         String scriptContent = 
             "#!/bin/bash\n" +
-            "echo '=== MRIT Server Local - Instalação ==='\n" +
+            "set -e\n" +
+            "clear\n" +
+            "echo '╔══════════════════════════════════════╗'\n" +
+            "echo '║   MRIT Server Local - Instalação    ║'\n" +
+            "echo '╚══════════════════════════════════════╝'\n" +
             "echo ''\n" +
-            "echo '1. Copiando arquivos...'\n" +
+            "echo '📦 Passo 1/3: Copiando arquivos...'\n" +
             "mkdir -p ~/servidorzinho\n" +
-            "# Usa diretório atual onde o script está\n" +
             "SOURCE_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" +
-            "cp -r \"$SOURCE_DIR\"/* ~/servidorzinho/ 2>/dev/null\n" +
-            "# Remove o próprio script da cópia\n" +
-            "rm ~/servidorzinho/copy_to_termux.sh 2>/dev/null\n" +
-            "chmod +x ~/servidorzinho/*.sh 2>/dev/null\n" +
+            "cp -r \"$SOURCE_DIR\"/* ~/servidorzinho/ 2>/dev/null || true\n" +
+            "rm ~/servidorzinho/copy_to_termux.sh 2>/dev/null || true\n" +
+            "chmod +x ~/servidorzinho/*.sh 2>/dev/null || true\n" +
             "echo '✅ Arquivos copiados!'\n" +
             "echo ''\n" +
             "cd ~/servidorzinho\n" +
             "if [ ! -f .installed ]; then\n" +
-            "    echo '2. Instalando dependências...'\n" +
+            "    echo '📦 Passo 2/3: Instalando dependências...'\n" +
+            "    echo '⏳ Isso pode demorar 10-15 minutos'\n" +
+            "    echo '⏳ Por favor, aguarde...'\n" +
+            "    echo ''\n" +
             "    bash INSTALAR_AUTO.sh\n" +
-            "    touch .installed\n" +
-            "    echo '✅ Dependências instaladas!'\n" +
             "    echo ''\n" +
-            "    echo '3. Iniciando servidor...'\n" +
-            "    bash iniciar_auto.sh &\n" +
-            "    echo '✅ Servidor iniciado!'\n" +
-            "    echo ''\n" +
-            "    echo 'Servidor rodando na porta 8080'\n" +
+            "    echo '📦 Passo 3/3: Iniciando servidor...'\n" +
+            "    bash iniciar_auto.sh\n" +
             "else\n" +
-            "    echo '2. Servidor já instalado. Iniciando...'\n" +
-            "    bash iniciar_auto.sh &\n" +
-            "    echo '✅ Servidor iniciado!'\n" +
+            "    echo '📦 Passo 2/3: Servidor já instalado'\n" +
+            "    echo '📦 Passo 3/3: Iniciando servidor...'\n" +
+            "    bash iniciar_auto.sh\n" +
             "fi\n" +
             "echo ''\n" +
-            "echo 'Para verificar: ps aux | grep servidor_auto'\n" +
-            "echo 'Para ver logs: tail -f ~/servidorzinho/servidor.log'\n";
+            "echo '✅ Instalação completa!'\n" +
+            "echo ''\n" +
+            "echo '📌 Comandos úteis:'\n" +
+            "echo '   start   -> Inicia servidor'\n" +
+            "echo '   status  -> Verifica se está rodando'\n" +
+            "echo '   logs    -> Mostra logs'\n" +
+            "echo '   stop    -> Para servidor'\n";
 
         FileOutputStream fos = new FileOutputStream(scriptFile);
         fos.write(scriptContent.getBytes());
