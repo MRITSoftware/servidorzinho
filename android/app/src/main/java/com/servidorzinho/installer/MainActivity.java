@@ -70,21 +70,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkStatus() {
-        updateStatus("Verificando instalação...");
-
-        // Verifica se Termux está instalado
-        if (isTermuxInstalled()) {
-            // Verifica se servidor já está instalado
-            if (isServerInstalled()) {
-                updateStatus("✅ Servidor já instalado!\n\nInicie o Termux para rodar o servidor.");
-                installButton.setText("Reinstalar");
-            } else {
-                updateStatus("Termux encontrado. Pronto para instalar.");
-            }
-        } else {
-            updateStatus("⚠️ Termux não encontrado.\n\nSerá necessário instalar o Termux primeiro.");
-            installButton.setText("Instalar Termux e Servidor");
-        }
+        updateStatus("Pronto para instalar.\n\n" +
+                "1. Clique em 'Instalar' para copiar arquivos\n" +
+                "2. Abra o Termux manualmente\n" +
+                "3. Execute o comando que aparecerá");
     }
 
     private boolean isTermuxInstalled() {
@@ -165,10 +154,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void installTermux() {
-        // Abre Play Store para instalar Termux
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setData(Uri.parse("market://details?id=com.termux"));
-        startActivity(intent);
+        // Tenta abrir Play Store de várias formas
+        try {
+            // Tenta Play Store primeiro
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse("market://details?id=com.termux"));
+            intent.setPackage("com.android.vending");
+            startActivity(intent);
+        } catch (Exception e) {
+            try {
+                // Fallback: URL da web
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setData(Uri.parse("https://play.google.com/store/apps/details?id=com.termux"));
+                startActivity(intent);
+            } catch (Exception e2) {
+                updateStatus("⚠️ Não foi possível abrir a Play Store.\n\n" +
+                        "Por favor, instale o Termux manualmente:\n" +
+                        "https://play.google.com/store/apps/details?id=com.termux");
+            }
+        }
     }
 
     private void openTermuxAndInstall() {
@@ -177,34 +181,13 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     handler.post(() -> updateStatus("Copiando arquivos..."));
                     copyFilesToTermux();
-                    Thread.sleep(1500);
                 } catch (Exception e) {
+                    handler.post(() -> {
+                        updateStatus("❌ Erro ao copiar arquivos: " + e.getMessage() + "\n\n" +
+                                "Tente clicar em 'Instalar' novamente.");
+                    });
                     android.util.Log.e("MainActivity", "Erro: " + e.getMessage());
                 }
-                
-                handler.post(() -> {
-                    try {
-                        Intent intent = getPackageManager().getLaunchIntentForPackage("com.termux");
-                        if (intent != null) {
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(intent);
-                            
-                            updateStatus("✅ Termux aberto!\n\n" +
-                                    "Execute este comando no Termux:\n\n" +
-                                    "bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh\n\n" +
-                                    "Ou se não funcionar:\n" +
-                                    "bash /sdcard/Download/MRIT_Server/copy_to_termux.sh");
-                        } else {
-                            // Abre Play Store para instalar Termux
-                            installTermux();
-                            updateStatus("⚠️ Termux não encontrado.\n\n" +
-                                    "Abrindo Play Store para instalar...");
-                        }
-                    } catch (Exception e) {
-                        updateStatus("❌ Erro ao abrir Termux.\n\n" +
-                                "Instale o Termux manualmente e tente novamente.");
-                    }
-                });
             }).start();
         } else {
             requestPermissions();
@@ -212,28 +195,27 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void copyFilesToTermux() throws Exception {
-        // Copia para múltiplos locais para garantir acesso
-        File[] targetDirs = {
-            new File("/sdcard/Download/MRIT_Server"),
-            new File("/storage/emulated/0/Download/MRIT_Server"),
-            new File(getExternalFilesDir(null), "servidorzinho")
-        };
+        // Copia para storage compartilhado - local mais acessível
+        File downloadsDir = new File("/sdcard/Download/MRIT_Server");
+        downloadsDir.mkdirs();
+        copyAssetsToDir(downloadsDir);
+        createTermuxCopyScript(downloadsDir);
         
-        for (File dir : targetDirs) {
-            try {
-                dir.mkdirs();
-                copyAssetsToDir(dir);
-                createTermuxCopyScript(dir);
-            } catch (Exception e) {
-                android.util.Log.e("MainActivity", "Erro ao copiar para " + dir + ": " + e.getMessage());
-            }
-        }
+        // Também copia para storage interno do app (backup)
+        File appDir = new File(getExternalFilesDir(null), "servidorzinho");
+        appDir.mkdirs();
+        copyAssetsToDir(appDir);
         
         handler.post(() -> {
-            updateStatus("✅ Arquivos copiados!\n\n" +
-                    "Local: Download/MRIT_Server\n\n" +
-                    "No Termux, execute:\n" +
-                    "bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh");
+            updateStatus("✅ Arquivos copiados com sucesso!\n\n" +
+                    "📁 Local: /sdcard/Download/MRIT_Server\n\n" +
+                    "📱 Agora:\n" +
+                    "1. Abra o Termux manualmente\n" +
+                    "2. Execute este comando:\n\n" +
+                    "bash /sdcard/Download/MRIT_Server/copy_to_termux.sh\n\n" +
+                    "Ou se não funcionar:\n" +
+                    "cd ~/storage/downloads/MRIT_Server\n" +
+                    "bash copy_to_termux.sh");
         });
     }
 
