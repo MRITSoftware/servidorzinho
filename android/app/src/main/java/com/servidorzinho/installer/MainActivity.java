@@ -226,29 +226,52 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void copyFilesToTermux() throws Exception {
-        // Copia para storage compartilhado - múltiplos locais
-        File[] targetDirs = {
-                new File("/sdcard/Download/MRIT_Server"),
-                new File("/storage/emulated/0/Download/MRIT_Server"),
-                new File(getExternalFilesDir(null), "servidorzinho")
-        };
+        // Para Android 11+ (API 30+), usa scoped storage
+        // Tenta múltiplos locais para compatibilidade
+        File[] targetDirs;
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            // Android 11+ - usa apenas diretório do app (mais confiável)
+            targetDirs = new File[] {
+                    new File(getExternalFilesDir(null), "servidorzinho")
+            };
+        } else {
+            // Android 10 e anteriores - tenta múltiplos locais
+            targetDirs = new File[] {
+                    new File("/sdcard/Download/MRIT_Server"),
+                    new File("/storage/emulated/0/Download/MRIT_Server"),
+                    new File(getExternalFilesDir(null), "servidorzinho")
+            };
+        }
 
         boolean copied = false;
+        Exception lastError = null;
+
         for (File dir : targetDirs) {
             try {
-                dir.mkdirs();
+                if (!dir.exists()) {
+                    dir.mkdirs();
+                }
+                if (!dir.exists() || !dir.canWrite()) {
+                    throw new Exception("Não foi possível criar ou escrever em: " + dir.getAbsolutePath());
+                }
                 copyAssetsToDir(dir);
                 createTermuxCopyScript(dir);
                 copied = true;
+                android.util.Log.d("MainActivity", "Arquivos copiados com sucesso para: " + dir.getAbsolutePath());
+                break; // Se conseguiu copiar, não precisa tentar outros
             } catch (Exception e) {
+                lastError = e;
                 android.util.Log.e("MainActivity", "Erro ao copiar para " + dir + ": " + e.getMessage());
             }
         }
 
         if (!copied) {
             handler.post(() -> {
+                String errorMsg = lastError != null ? lastError.getMessage() : "Erro desconhecido";
                 updateStatus("❌ Erro ao copiar arquivos.\n\n" +
-                        "Verifique as permissões do app.");
+                        "Erro: " + errorMsg + "\n\n" +
+                        "Verifique as permissões do app nas configurações.");
             });
             return;
         }
@@ -280,30 +303,30 @@ public class MainActivity extends AppCompatActivity {
                 "chmod +x ~/servidorzinho/*.sh 2>/dev/null || true\n" +
                 "echo '✅ Arquivos copiados!'\n" +
                 "echo ''\n" +
-            "cd ~/servidorzinho\n" +
-            "if [ ! -f .installed ]; then\n" +
-            "    echo '📦 Passo 2/3: Instalando dependências...'\n" +
-            "    echo '⏳ Isso pode demorar 10-15 minutos'\n" +
-            "    echo '⏳ Por favor, NÃO feche o Termux'\n" +
-            "    echo ''\n" +
-            "    bash INSTALAR_AUTO.sh || {\n" +
-            "        echo ''\n" +
-            "        echo '❌ Erro na instalação!'\n" +
-            "        echo 'Tente executar: bash INSTALAR_AUTO.sh'\n" +
-            "        exit 1\n" +
-            "    }\n" +
-            "    echo ''\n" +
-            "    echo '📦 Passo 3/3: Iniciando servidor...'\n" +
-            "    bash iniciar_auto.sh\n" +
-            "else\n" +
-            "    echo '📦 Passo 2/3: Verificando dependências...'\n" +
-            "    if ! python3 -c 'import tinytuya' 2>/dev/null; then\n" +
-            "        echo '⚠️  Dependências faltando. Reinstalando...'\n" +
-            "        bash INSTALAR_AUTO.sh\n" +
-            "    fi\n" +
-            "    echo '📦 Passo 3/3: Iniciando servidor...'\n" +
-            "    bash iniciar_auto.sh\n" +
-            "fi\n" +
+                "cd ~/servidorzinho\n" +
+                "if [ ! -f .installed ]; then\n" +
+                "    echo '📦 Passo 2/3: Instalando dependências...'\n" +
+                "    echo '⏳ Isso pode demorar 10-15 minutos'\n" +
+                "    echo '⏳ Por favor, NÃO feche o Termux'\n" +
+                "    echo ''\n" +
+                "    bash INSTALAR_AUTO.sh || {\n" +
+                "        echo ''\n" +
+                "        echo '❌ Erro na instalação!'\n" +
+                "        echo 'Tente executar: bash INSTALAR_AUTO.sh'\n" +
+                "        exit 1\n" +
+                "    }\n" +
+                "    echo ''\n" +
+                "    echo '📦 Passo 3/3: Iniciando servidor...'\n" +
+                "    bash iniciar_auto.sh\n" +
+                "else\n" +
+                "    echo '📦 Passo 2/3: Verificando dependências...'\n" +
+                "    if ! python3 -c 'import tinytuya' 2>/dev/null; then\n" +
+                "        echo '⚠️  Dependências faltando. Reinstalando...'\n" +
+                "        bash INSTALAR_AUTO.sh\n" +
+                "    fi\n" +
+                "    echo '📦 Passo 3/3: Iniciando servidor...'\n" +
+                "    bash iniciar_auto.sh\n" +
+                "fi\n" +
                 "echo ''\n" +
                 "echo '✅ Instalação completa!'\n" +
                 "echo ''\n" +

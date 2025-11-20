@@ -39,6 +39,7 @@ jobs:
         cp INSTALAR_AUTO.sh android/app/src/main/assets/
         cp setup_boot.sh android/app/src/main/assets/
         cp requirements.txt android/app/src/main/assets/
+        cp testar_servidor.sh android/app/src/main/assets/
         
     - name: Grant execute permission
       run: chmod +x android/app/src/main/assets/*.sh

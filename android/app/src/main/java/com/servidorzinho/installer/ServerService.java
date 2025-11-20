@@ -45,16 +45,12 @@ public class ServerService extends Service {
     }
 
     private void checkAndStartServer() {
-        // Verifica se servidor está rodando e inicia se necessário
-        try {
-            Intent intent = new Intent("com.termux.EXECUTE");
-            intent.setClassName("com.termux", "com.termux.app.RunCommandService");
-            intent.putExtra("com.termux.EXECUTE_COMMAND",
-                    "cd ~/servidorzinho && bash iniciar_auto.sh");
-            startService(intent);
-        } catch (Exception e) {
-            // Servidor não está rodando ou Termux não está disponível
-        }
+        // Nota: A API do Termux não permite executar comandos diretamente de outros
+        // apps
+        // O servidor deve ser iniciado manualmente pelo usuário no Termux
+        // Este serviço apenas monitora e mantém a notificação ativa
+        // O usuário precisa executar: cd ~/servidorzinho && bash iniciar_auto.sh
+        android.util.Log.d("ServerService", "Serviço em execução. Use o Termux para iniciar o servidor.");
     }
 
     private void createNotificationChannel() {
@@ -72,9 +68,13 @@ public class ServerService extends Service {
 
     private Notification createNotification() {
         Intent notificationIntent = new Intent(this, MainActivity.class);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        // FLAG_IMMUTABLE é obrigatório no Android 12+ (API 31+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
         PendingIntent pendingIntent = PendingIntent.getActivity(
-                this, 0, notificationIntent,
-                PendingIntent.FLAG_IMMUTABLE);
+                this, 0, notificationIntent, flags);
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Servidorzinho")
