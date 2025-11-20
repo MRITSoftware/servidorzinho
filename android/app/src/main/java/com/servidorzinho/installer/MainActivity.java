@@ -245,8 +245,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         boolean copied = false;
-        Exception lastError = null;
-
+        String lastErrorMessage = null;
+        
         for (File dir : targetDirs) {
             try {
                 if (!dir.exists()) {
@@ -261,14 +261,14 @@ public class MainActivity extends AppCompatActivity {
                 android.util.Log.d("MainActivity", "Arquivos copiados com sucesso para: " + dir.getAbsolutePath());
                 break; // Se conseguiu copiar, não precisa tentar outros
             } catch (Exception e) {
-                lastError = e;
+                lastErrorMessage = e.getMessage();
                 android.util.Log.e("MainActivity", "Erro ao copiar para " + dir + ": " + e.getMessage());
             }
         }
 
         if (!copied) {
+            final String errorMsg = lastErrorMessage != null ? lastErrorMessage : "Erro desconhecido";
             handler.post(() -> {
-                String errorMsg = lastError != null ? lastError.getMessage() : "Erro desconhecido";
                 updateStatus("❌ Erro ao copiar arquivos.\n\n" +
                         "Erro: " + errorMsg + "\n\n" +
                         "Verifique as permissões do app nas configurações.");
