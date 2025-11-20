@@ -27,22 +27,30 @@ if [ -f "servidor.pid" ]; then
     fi
 fi
 
-# Inicia em background
-nohup python3 servidor_auto.py > /dev/null 2>&1 &
+# Inicia em background e redireciona erros para log
+nohup python3 servidor_auto.py >> servidor.log 2>&1 &
 
 NEW_PID=$!
 echo "$NEW_PID" > servidor.pid
 
 # Aguarda um pouco para verificar se iniciou
-sleep 1
+sleep 2
 if ps -p "$NEW_PID" > /dev/null 2>&1; then
     echo "✅ Servidor iniciado em background (PID: $NEW_PID)"
-    echo "📋 Logs: tail -f ~/servidorzinho/servidor.log"
+    echo "📋 Logs: tail -f servidor.log"
     echo "🛑 Parar: kill $NEW_PID"
     echo "🌐 Testar: curl http://localhost:8080/status"
+    echo ""
+    echo "Verificando se servidor responde..."
+    sleep 1
+    if curl -s http://localhost:8080/status > /dev/null 2>&1; then
+        echo "✅ Servidor respondendo na porta 8080"
+    else
+        echo "⚠️ Servidor iniciado mas não responde ainda. Verifique logs."
+    fi
 else
     echo "❌ Erro: Servidor não iniciou. Verifique os logs:"
-    echo "tail -20 ~/servidorzinho/servidor.log"
+    echo "tail -30 servidor.log"
     rm -f servidor.pid
     exit 1
 fi
