@@ -45,13 +45,32 @@ if [ -f "servidor.pid" ]; then
 fi
 
 # Inicia em background e salva logs
-nohup python3 servidor_auto.py >> servidor.log 2>&1 &
-
+echo "Iniciando servidor..."
+python3 servidor_auto.py >> servidor.log 2>&1 &
 NEW_PID=$!
+
+# Aguarda um momento
+sleep 1
+
+# Verifica se o processo ainda existe
+if ! ps -p "$NEW_PID" > /dev/null 2>&1; then
+    echo "❌ Erro: Servidor parou imediatamente!"
+    echo ""
+    echo "📋 Últimas linhas do log:"
+    tail -20 servidor.log 2>/dev/null || echo "Log vazio ou não encontrado"
+    echo ""
+    echo "🔍 Tente executar manualmente para ver o erro:"
+    echo "python3 servidor_auto.py"
+    rm -f servidor.pid
+    exit 1
+fi
+
 echo "$NEW_PID" > servidor.pid
 
-# Aguarda um pouco para verificar se iniciou
-sleep 3
+# Aguarda mais um pouco para o servidor inicializar
+sleep 2
+
+# Verifica novamente
 if ps -p "$NEW_PID" > /dev/null 2>&1; then
     # Testa se o servidor HTTP está respondendo
     if curl -s http://localhost:8080/status > /dev/null 2>&1; then
@@ -60,13 +79,14 @@ if ps -p "$NEW_PID" > /dev/null 2>&1; then
         echo "🛑 Parar: kill $NEW_PID"
         echo "🌐 Status: curl http://localhost:8080/status"
     else
-        echo "⚠️  Processo iniciado mas servidor não responde ainda"
+        echo "⚠️  Processo rodando mas servidor não responde ainda"
         echo "📋 Verifique logs: tail -20 servidor.log"
         echo "🛑 Parar: kill $NEW_PID"
     fi
 else
-    echo "❌ Erro: Servidor não iniciou. Verifique os logs:"
-    echo "tail -30 servidor.log"
+    echo "❌ Erro: Servidor parou após iniciar!"
+    echo "📋 Últimas linhas do log:"
+    tail -30 servidor.log
     rm -f servidor.pid
     exit 1
 fi
