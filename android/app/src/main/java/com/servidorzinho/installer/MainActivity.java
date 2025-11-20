@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Button;
@@ -195,30 +196,78 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void copyFilesToTermux() throws Exception {
-        // Usa diretório do app (mais confiável)
-        File targetDir = new File(getExternalFilesDir(null), "servidorzinho");
+        // Tenta múltiplos locais acessíveis pelo Termux
+        File[] possibleDirs = {
+            new File(getExternalFilesDir(null), "servidorzinho"),
+            new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MRIT_Server")
+        };
         
-        if (!targetDir.exists()) {
-            targetDir.mkdirs();
+        File targetDir = null;
+        String accessiblePath = null;
+        
+        // Tenta encontrar um diretório acessível
+        for (File dir : possibleDirs) {
+            try {
+                if (!dir.exists()) {
+                    dir.mkdirs();
+                }
+                if (dir.exists() && dir.canWrite()) {
+                    targetDir = dir;
+                    // Tenta encontrar o caminho acessível
+                    String absPath = dir.getAbsolutePath();
+                    // Converte para caminho acessível pelo Termux
+                    if (absPath.contains("/Android/data/")) {
+                        // Para Android 11+, usa caminho alternativo
+                        accessiblePath = "~/storage/downloads/MRIT_Server";
+                    } else if (absPath.contains("/Download")) {
+                        accessiblePath = "~/storage/downloads/MRIT_Server";
+                    } else {
+                        // Tenta usar o caminho direto
+                        accessiblePath = absPath;
+                    }
+                    break;
+                }
+            } catch (Exception e) {
+                android.util.Log.e("MainActivity", "Erro ao tentar diretório " + dir + ": " + e.getMessage());
+            }
         }
         
-        if (!targetDir.exists() || !targetDir.canWrite()) {
-            throw new Exception("Não foi possível criar diretório: " + targetDir.getAbsolutePath());
+        if (targetDir == null) {
+            // Fallback: usa Download
+            targetDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MRIT_Server");
+            targetDir.mkdirs();
+            accessiblePath = "~/storage/downloads/MRIT_Server";
         }
 
         copyAssetsToDir(targetDir);
-        createSimpleCopyScript(targetDir);
+        
+        // Verifica se os arquivos foram copiados
+        File testFile = new File(targetDir, "servidor_auto.py");
+        if (!testFile.exists()) {
+            throw new Exception("Erro: Arquivos não foram copiados corretamente");
+        }
 
-        // Copia comando para área de transferência
-        String installCommand = "mkdir -p ~/servidorzinho && " +
-                "cp -r \"" + targetDir.getAbsolutePath() + "\"/* ~/servidorzinho/ && " +
-                "cd ~/servidorzinho && " +
-                "chmod +x *.sh *.py && " +
-                "bash INSTALAR_AUTO.sh && " +
-                "bash iniciar_auto.sh";
+        // Cria comando que funciona independente do caminho
+        // Usa um script que encontra os arquivos automaticamente
+        String installCommand = 
+            "termux-setup-storage 2>/dev/null || true\n" +
+            "sleep 1\n" +
+            "mkdir -p ~/servidorzinho\n" +
+            "if [ -d ~/storage/downloads/MRIT_Server ]; then\n" +
+            "  cp -r ~/storage/downloads/MRIT_Server/* ~/servidorzinho/ 2>/dev/null || true\n" +
+            "fi\n" +
+            "if [ ! -f ~/servidorzinho/servidor_auto.py ]; then\n" +
+            "  echo '❌ Erro: Arquivos não encontrados!'\n" +
+            "  echo 'Execute o app novamente e clique em Instalar'\n" +
+            "  exit 1\n" +
+            "fi\n" +
+            "cd ~/servidorzinho\n" +
+            "chmod +x *.sh *.py 2>/dev/null || true\n" +
+            "bash INSTALAR_AUTO.sh && bash iniciar_auto.sh";
 
         handler.post(() -> copyToClipboard(installCommand));
     }
+    
 
     private void createSimpleCopyScript(File sourceDir) throws Exception {
         // Cria script simples que copia tudo e instala
