@@ -200,17 +200,15 @@ public class MainActivity extends AppCompatActivity {
                         if (intent != null) {
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                             
-                            // Tenta passar comando via Intent (se Termux API estiver instalado)
-                            File downloadsDir = new File(getExternalStoragePublicDirectory(
-                                android.os.Environment.DIRECTORY_DOWNLOADS), "MRIT_Server");
-                            String scriptPath = new File(downloadsDir, "copy_to_termux.sh").getAbsolutePath();
-                            
                             startActivity(intent);
                             updateStatus("✅ Termux aberto!\n\n" +
-                                    "Execute no Termux:\n" +
-                                    "bash " + scriptPath + "\n\n" +
-                                    "Ou copie manualmente:\n" +
-                                    "cp -r /sdcard/Download/MRIT_Server/* ~/servidorzinho/");
+                                    "Execute no Termux:\n\n" +
+                                    "bash /sdcard/Download/MRIT_Server/copy_to_termux.sh\n\n" +
+                                    "Ou manualmente:\n" +
+                                    "mkdir -p ~/servidorzinho\n" +
+                                    "cp -r /sdcard/Download/MRIT_Server/* ~/servidorzinho/\n" +
+                                    "cd ~/servidorzinho\n" +
+                                    "bash INSTALAR_AUTO.sh");
                         } else {
                             installTermux();
                             updateStatus("⚠️ Termux não encontrado.\n\nInstale o Termux primeiro.");
@@ -227,8 +225,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void copyFilesToTermux() throws Exception {
         // Copia para storage compartilhado (acessível pelo Termux)
-        File downloadsDir = new File(getExternalStoragePublicDirectory(
-            android.os.Environment.DIRECTORY_DOWNLOADS), "MRIT_Server");
+        // Usa /sdcard/Download que é o caminho padrão acessível
+        File downloadsDir;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            // Android 10+ usa scoped storage, mas /sdcard ainda funciona para Termux
+            downloadsDir = new File("/sdcard/Download/MRIT_Server");
+        } else {
+            downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS);
+            downloadsDir = new File(downloadsDir, "MRIT_Server");
+        }
         downloadsDir.mkdirs();
         copyAssetsToDir(downloadsDir);
         
@@ -241,38 +247,38 @@ public class MainActivity extends AppCompatActivity {
         createTermuxCopyScript(downloadsDir);
         
         handler.post(() -> {
-            updateStatus("✅ Arquivos copiados para Downloads/MRIT_Server!\n\n" +
+            updateStatus("✅ Arquivos copiados!\n\n" +
+                    "Local: /sdcard/Download/MRIT_Server\n\n" +
                     "Clique em 'Abrir Termux e Instalar' para continuar.");
         });
-    }
-    
-    private File getExternalStoragePublicDirectory(String type) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            return new File(getExternalFilesDir(null).getParentFile().getParentFile(), 
-                "Android/media/" + getPackageName() + "/" + type);
-        } else {
-            return android.os.Environment.getExternalStoragePublicDirectory(type);
-        }
     }
     
     private void createTermuxCopyScript(File sourceDir) throws Exception {
         // Cria script que o Termux executa automaticamente
         File scriptFile = new File(sourceDir, "copy_to_termux.sh");
+        // Usa caminho /sdcard que o Termux entende
+        String sourcePath = "/sdcard/Download/MRIT_Server";
         String scriptContent = 
             "#!/bin/bash\n" +
             "# Script para copiar arquivos para Termux\n" +
+            "echo 'Copiando arquivos...'\n" +
             "mkdir -p ~/servidorzinho\n" +
-            "cp -r " + sourceDir.getAbsolutePath() + "/* ~/servidorzinho/ 2>/dev/null || true\n" +
+            "cp -r " + sourcePath + "/* ~/servidorzinho/ 2>/dev/null || cp -r /storage/emulated/0/Download/MRIT_Server/* ~/servidorzinho/ 2>/dev/null || true\n" +
             "chmod +x ~/servidorzinho/*.sh 2>/dev/null || true\n" +
             "cd ~/servidorzinho\n" +
             "if [ ! -f .installed ]; then\n" +
+            "    echo 'Instalando dependências...'\n" +
             "    bash INSTALAR_AUTO.sh > install.log 2>&1\n" +
             "    touch .installed\n" +
+            "    echo 'Iniciando servidor...'\n" +
             "    bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
+            "    echo 'Servidor iniciado!'\n" +
             "fi\n" +
             "# Auto-start server if not running\n" +
-            "if [ ! -f servidor.pid ] || ! ps -p $(cat servidor.pid) > /dev/null 2>&1; then\n" +
-            "    bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
+            "if [ -d ~/servidorzinho ] && [ -f ~/servidorzinho/.installed ]; then\n" +
+            "    if [ ! -f ~/servidorzinho/servidor.pid ] || ! ps -p $(cat ~/servidorzinho/servidor.pid) > /dev/null 2>&1; then\n" +
+            "        cd ~/servidorzinho && bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
+            "    fi\n" +
             "fi\n";
         
         FileOutputStream fos = new FileOutputStream(scriptFile);
@@ -283,8 +289,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupTermuxAutoStart() throws Exception {
         // Tenta adicionar script ao .bashrc do Termux via storage compartilhado
-        File downloadsDir = new File(getExternalStoragePublicDirectory(
-            android.os.Environment.DIRECTORY_DOWNLOADS), "MRIT_Server");
+        File downloadsDir;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            downloadsDir = new File("/sdcard/Download/MRIT_Server");
+        } else {
+            downloadsDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_DOWNLOADS), "MRIT_Server");
+        }
         File bashrcScript = new File(downloadsDir, "setup_bashrc.sh");
         
         String bashrcContent = 
