@@ -24,14 +24,10 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v2
       
-    - name: Install Gradle
-      run: |
-        wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
-        sudo unzip -q gradle-8.5-bin.zip -d /opt
-        sudo mv /opt/gradle-8.5 /opt/gradle
-        echo "$PATH" | grep -q "/opt/gradle/bin" || echo "/opt/gradle/bin" >> $GITHUB_PATH
-        export PATH="/opt/gradle/bin:$PATH"
-        gradle --version
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v2
+      with:
+        gradle-version: '8.4'
         
     - name: Copy files to assets
       run: |
@@ -102,7 +98,7 @@ jobs:
       working-directory: android
       run: |
         echo "📦 Criando Gradle wrapper..."
-        gradle wrapper --gradle-version 8.5
+        gradle wrapper --gradle-version 8.4 --distribution-type all
         
     - name: Build Debug APK
       working-directory: android
