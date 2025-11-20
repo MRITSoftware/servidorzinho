@@ -195,27 +195,40 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void copyFilesToTermux() throws Exception {
-        // Copia para storage compartilhado - local mais acessível
-        File downloadsDir = new File("/sdcard/Download/MRIT_Server");
-        downloadsDir.mkdirs();
-        copyAssetsToDir(downloadsDir);
-        createTermuxCopyScript(downloadsDir);
+        // Copia para storage compartilhado - múltiplos locais
+        File[] targetDirs = {
+            new File("/sdcard/Download/MRIT_Server"),
+            new File("/storage/emulated/0/Download/MRIT_Server"),
+            new File(getExternalFilesDir(null), "servidorzinho")
+        };
         
-        // Também copia para storage interno do app (backup)
-        File appDir = new File(getExternalFilesDir(null), "servidorzinho");
-        appDir.mkdirs();
-        copyAssetsToDir(appDir);
+        boolean copied = false;
+        for (File dir : targetDirs) {
+            try {
+                dir.mkdirs();
+                copyAssetsToDir(dir);
+                createTermuxCopyScript(dir);
+                copied = true;
+            } catch (Exception e) {
+                android.util.Log.e("MainActivity", "Erro ao copiar para " + dir + ": " + e.getMessage());
+            }
+        }
+        
+        if (!copied) {
+            handler.post(() -> {
+                updateStatus("❌ Erro ao copiar arquivos.\n\n" +
+                        "Verifique as permissões do app.");
+            });
+            return;
+        }
         
         handler.post(() -> {
-            updateStatus("✅ Arquivos copiados com sucesso!\n\n" +
-                    "📁 Local: /sdcard/Download/MRIT_Server\n\n" +
-                    "📱 Agora:\n" +
-                    "1. Abra o Termux manualmente\n" +
-                    "2. Execute este comando:\n\n" +
-                    "bash /sdcard/Download/MRIT_Server/copy_to_termux.sh\n\n" +
-                    "Ou se não funcionar:\n" +
+            updateStatus("✅ Arquivos copiados!\n\n" +
+                    "📱 No Termux, execute:\n\n" +
                     "cd ~/storage/downloads/MRIT_Server\n" +
-                    "bash copy_to_termux.sh");
+                    "bash copy_to_termux.sh\n\n" +
+                    "Se não funcionar, primeiro execute:\n" +
+                    "termux-setup-storage");
         });
     }
 
