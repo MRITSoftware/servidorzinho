@@ -1,2 +1,4 @@
+# Dependências do servidorzinho
+# cryptography será instalado automaticamente como dependência do tinytuya
+# mas pode ser especificado explicitamente se necessário
 tinytuya>=1.12.0
-

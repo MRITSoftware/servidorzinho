@@ -21,3 +21,4 @@ echo ""
 echo "✅ Reinstalação concluída!"
 echo "🚀 Para iniciar: bash iniciar_auto.sh"
 
+

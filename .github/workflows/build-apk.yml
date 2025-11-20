@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
   build:
@@ -29,34 +31,126 @@ jobs:
         sudo mv /opt/gradle-8.5 /opt/gradle
         echo "$PATH" | grep -q "/opt/gradle/bin" || echo "/opt/gradle/bin" >> $GITHUB_PATH
         export PATH="/opt/gradle/bin:$PATH"
+        gradle --version
         
     - name: Copy files to assets
       run: |
+        echo "📦 Copiando arquivos para assets..."
         mkdir -p android/app/src/main/assets
-        cp servidor_auto.py android/app/src/main/assets/
-        cp iniciar_auto.sh android/app/src/main/assets/
-        cp parar.sh android/app/src/main/assets/
-        cp INSTALAR_AUTO.sh android/app/src/main/assets/
-        cp setup_boot.sh android/app/src/main/assets/
-        cp requirements.txt android/app/src/main/assets/
-        cp testar_servidor.sh android/app/src/main/assets/
+        
+        # Copiar arquivos principais
+        if [ -f servidor_auto.py ]; then
+          cp servidor_auto.py android/app/src/main/assets/
+          echo "✅ servidor_auto.py copiado"
+        else
+          echo "⚠️  servidor_auto.py não encontrado"
+        fi
+        
+        if [ -f iniciar_auto.sh ]; then
+          cp iniciar_auto.sh android/app/src/main/assets/
+          echo "✅ iniciar_auto.sh copiado"
+        else
+          echo "⚠️  iniciar_auto.sh não encontrado"
+        fi
+        
+        if [ -f parar.sh ]; then
+          cp parar.sh android/app/src/main/assets/
+          echo "✅ parar.sh copiado"
+        else
+          echo "⚠️  parar.sh não encontrado"
+        fi
+        
+        if [ -f INSTALAR_AUTO.sh ]; then
+          cp INSTALAR_AUTO.sh android/app/src/main/assets/
+          echo "✅ INSTALAR_AUTO.sh copiado"
+        else
+          echo "⚠️  INSTALAR_AUTO.sh não encontrado"
+        fi
+        
+        if [ -f setup_boot.sh ]; then
+          cp setup_boot.sh android/app/src/main/assets/
+          echo "✅ setup_boot.sh copiado"
+        else
+          echo "⚠️  setup_boot.sh não encontrado"
+        fi
+        
+        if [ -f requirements.txt ]; then
+          cp requirements.txt android/app/src/main/assets/
+          echo "✅ requirements.txt copiado"
+        else
+          echo "⚠️  requirements.txt não encontrado"
+        fi
+        
+        if [ -f testar_servidor.sh ]; then
+          cp testar_servidor.sh android/app/src/main/assets/
+          echo "✅ testar_servidor.sh copiado"
+        else
+          echo "⚠️  testar_servidor.sh não encontrado"
+        fi
+        
+        echo ""
+        echo "📋 Arquivos em assets:"
+        ls -lh android/app/src/main/assets/
         
     - name: Grant execute permission
-      run: chmod +x android/app/src/main/assets/*.sh
+      run: |
+        echo "🔧 Dando permissão de execução aos scripts..."
+        chmod +x android/app/src/main/assets/*.sh 2>/dev/null || true
+        ls -l android/app/src/main/assets/*.sh 2>/dev/null || echo "Nenhum script .sh encontrado"
       
     - name: Create Gradle wrapper
       working-directory: android
       run: |
+        echo "📦 Criando Gradle wrapper..."
         gradle wrapper --gradle-version 8.5
         
-    - name: Build APK
+    - name: Build Debug APK
       working-directory: android
       run: |
-        ./gradlew assembleDebug
+        echo "🔨 Compilando APK Debug..."
+        ./gradlew assembleDebug --stacktrace
         
-    - name: Upload APK
+    - name: Build Release APK
+      working-directory: android
+      run: |
+        echo "🔨 Compilando APK Release..."
+        ./gradlew assembleRelease --stacktrace
+        
+    - name: List APK files
+      run: |
+        echo "📦 Arquivos APK gerados:"
+        find android/app/build/outputs/apk -name "*.apk" -type f -exec ls -lh {} \;
+        
+    - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-debug
+        name: app-debug-apk
         path: android/app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 30
+        
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release-apk
+        path: android/app/build/outputs/apk/release/app-release.apk
+        retention-days: 30
+        
+    - name: APK Info
+      run: |
+        echo "📱 Informações do APK Debug:"
+        if [ -f android/app/build/outputs/apk/debug/app-debug.apk ]; then
+          ls -lh android/app/build/outputs/apk/debug/app-debug.apk
+          echo "✅ APK Debug gerado com sucesso!"
+        else
+          echo "❌ APK Debug não encontrado"
+        fi
+        
+        echo ""
+        echo "📱 Informações do APK Release:"
+        if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+          ls -lh android/app/build/outputs/apk/release/app-release.apk
+          echo "✅ APK Release gerado com sucesso!"
+        else
+          echo "❌ APK Release não encontrado"
+        fi
 
