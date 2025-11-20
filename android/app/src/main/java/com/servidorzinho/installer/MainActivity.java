@@ -233,34 +233,42 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void createTermuxCopyScript(File sourceDir) throws Exception {
-        // Cria script que o Termux executa automaticamente
+        // Cria script que usa diretório atual (mais confiável)
         File scriptFile = new File(sourceDir, "copy_to_termux.sh");
-        // Usa caminho /sdcard que o Termux entende
-        String sourcePath = "/sdcard/Download/MRIT_Server";
-        String scriptContent = "#!/bin/bash\n" +
-                "# Script para copiar arquivos para Termux\n" +
-                "echo 'Copiando arquivos...'\n" +
-                "mkdir -p ~/servidorzinho\n" +
-                "cp -r " + sourcePath
-                + "/* ~/servidorzinho/ 2>/dev/null || cp -r /storage/emulated/0/Download/MRIT_Server/* ~/servidorzinho/ 2>/dev/null || true\n"
-                +
-                "chmod +x ~/servidorzinho/*.sh 2>/dev/null || true\n" +
-                "cd ~/servidorzinho\n" +
-                "if [ ! -f .installed ]; then\n" +
-                "    echo 'Instalando dependências...'\n" +
-                "    bash INSTALAR_AUTO.sh > install.log 2>&1\n" +
-                "    touch .installed\n" +
-                "    echo 'Iniciando servidor...'\n" +
-                "    bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
-                "    echo 'Servidor iniciado!'\n" +
-                "fi\n" +
-                "# Auto-start server if not running\n" +
-                "if [ -d ~/servidorzinho ] && [ -f ~/servidorzinho/.installed ]; then\n" +
-                "    if [ ! -f ~/servidorzinho/servidor.pid ] || ! ps -p $(cat ~/servidorzinho/servidor.pid) > /dev/null 2>&1; then\n"
-                +
-                "        cd ~/servidorzinho && bash iniciar_auto.sh > /dev/null 2>&1 &\n" +
-                "    fi\n" +
-                "fi\n";
+        String scriptContent = 
+            "#!/bin/bash\n" +
+            "echo '=== MRIT Server Local - Instalação ==='\n" +
+            "echo ''\n" +
+            "echo '1. Copiando arquivos...'\n" +
+            "mkdir -p ~/servidorzinho\n" +
+            "# Usa diretório atual onde o script está\n" +
+            "SOURCE_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" +
+            "cp -r \"$SOURCE_DIR\"/* ~/servidorzinho/ 2>/dev/null\n" +
+            "# Remove o próprio script da cópia\n" +
+            "rm ~/servidorzinho/copy_to_termux.sh 2>/dev/null\n" +
+            "chmod +x ~/servidorzinho/*.sh 2>/dev/null\n" +
+            "echo '✅ Arquivos copiados!'\n" +
+            "echo ''\n" +
+            "cd ~/servidorzinho\n" +
+            "if [ ! -f .installed ]; then\n" +
+            "    echo '2. Instalando dependências...'\n" +
+            "    bash INSTALAR_AUTO.sh\n" +
+            "    touch .installed\n" +
+            "    echo '✅ Dependências instaladas!'\n" +
+            "    echo ''\n" +
+            "    echo '3. Iniciando servidor...'\n" +
+            "    bash iniciar_auto.sh &\n" +
+            "    echo '✅ Servidor iniciado!'\n" +
+            "    echo ''\n" +
+            "    echo 'Servidor rodando na porta 8080'\n" +
+            "else\n" +
+            "    echo '2. Servidor já instalado. Iniciando...'\n" +
+            "    bash iniciar_auto.sh &\n" +
+            "    echo '✅ Servidor iniciado!'\n" +
+            "fi\n" +
+            "echo ''\n" +
+            "echo 'Para verificar: ps aux | grep servidor_auto'\n" +
+            "echo 'Para ver logs: tail -f ~/servidorzinho/servidor.log'\n";
 
         FileOutputStream fos = new FileOutputStream(scriptFile);
         fos.write(scriptContent.getBytes());
