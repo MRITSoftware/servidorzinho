@@ -46,21 +46,40 @@ fi
 
 # Inicia em background e salva logs
 echo "Iniciando servidor..."
+echo "📋 Logs serão salvos em: servidor.log"
+echo ""
+
+# Testa primeiro se consegue importar
+echo "Verificando se servidor pode iniciar..."
+python3 -c "import servidor_auto" 2>&1 | tee -a servidor.log
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo ""
+    echo "❌ Erro: Não foi possível importar servidor_auto.py"
+    echo "📋 Erro completo:"
+    python3 -c "import servidor_auto" 2>&1
+    exit 1
+fi
+
+# Agora tenta iniciar
 python3 servidor_auto.py >> servidor.log 2>&1 &
 NEW_PID=$!
 
 # Aguarda um momento
-sleep 1
+sleep 2
 
 # Verifica se o processo ainda existe
 if ! ps -p "$NEW_PID" > /dev/null 2>&1; then
     echo "❌ Erro: Servidor parou imediatamente!"
     echo ""
     echo "📋 Últimas linhas do log:"
-    tail -20 servidor.log 2>/dev/null || echo "Log vazio ou não encontrado"
+    if [ -f servidor.log ]; then
+        tail -30 servidor.log
+    else
+        echo "Log não foi criado - servidor crashou antes de escrever"
+    fi
     echo ""
-    echo "🔍 Tente executar manualmente para ver o erro:"
-    echo "python3 servidor_auto.py"
+    echo "🔍 Testando execução direta para ver erro:"
+    python3 servidor_auto.py 2>&1 | head -20
     rm -f servidor.pid
     exit 1
 fi
