@@ -23,12 +23,9 @@ import java.io.InputStream;
 public class MainActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST_CODE = 100;
     private TextView statusText;
+    private TextView commandText;
+    private Button copyButton;
     private Button installButton;
-    private Button openTermuxButton;
-    private Button copyInstallButton;
-    private Button copyStartButton;
-    private Button copyStatusButton;
-    private Button copyLogsButton;
     private Handler handler;
     private ClipboardManager clipboard;
 
@@ -39,56 +36,24 @@ public class MainActivity extends AppCompatActivity {
 
         handler = new Handler(Looper.getMainLooper());
         statusText = findViewById(R.id.statusText);
+        commandText = findViewById(R.id.commandText);
+        copyButton = findViewById(R.id.copyButton);
         installButton = findViewById(R.id.installButton);
-        openTermuxButton = findViewById(R.id.openTermuxButton);
-        copyInstallButton = findViewById(R.id.copyInstallButton);
-        copyStartButton = findViewById(R.id.copyStartButton);
-        copyStatusButton = findViewById(R.id.copyStatusButton);
-        copyLogsButton = findViewById(R.id.copyLogsButton);
         clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
 
         installButton.setOnClickListener(v -> {
             if (checkPermissions()) {
-                startInstallation();
+                copyFiles();
             } else {
                 requestPermissions();
             }
         });
 
-        openTermuxButton.setOnClickListener(v -> openTermux());
-
-        copyInstallButton.setOnClickListener(v -> {
-            copyToClipboard("cd ~/servidorzinho && bash INSTALAR_AUTO.sh");
-            updateStatus("✅ Comando copiado!\n\n" +
-                    "📱 No Termux:\n" +
-                    "1. Cole o comando (Ctrl+Shift+V)\n" +
-                    "2. Pressione Enter\n" +
-                    "3. Aguarde a instalação (10-15 min)");
-        });
-
-        copyStartButton.setOnClickListener(v -> {
-            copyToClipboard("cd ~/servidorzinho && bash iniciar_auto.sh");
-            updateStatus("✅ Comando copiado!\n\n" +
-                    "📱 No Termux:\n" +
-                    "1. Cole o comando\n" +
-                    "2. Pressione Enter\n" +
-                    "3. O servidor iniciará");
-        });
-
-        copyStatusButton.setOnClickListener(v -> {
-            copyToClipboard("cd ~/servidorzinho && curl -s http://localhost:8080/status || echo 'Servidor não está respondendo'");
-            updateStatus("✅ Comando copiado!\n\n" +
-                    "📱 No Termux:\n" +
-                    "1. Cole o comando\n" +
-                    "2. Pressione Enter");
-        });
-
-        copyLogsButton.setOnClickListener(v -> {
-            copyToClipboard("cd ~/servidorzinho && tail -30 servidor.log");
-            updateStatus("✅ Comando copiado!\n\n" +
-                    "📱 No Termux:\n" +
-                    "1. Cole o comando\n" +
-                    "2. Pressione Enter");
+        copyButton.setOnClickListener(v -> {
+            String cmd = commandText.getText().toString();
+            if (!cmd.isEmpty()) {
+                copyToClipboard(cmd);
+            }
         });
 
         checkStatus();
@@ -104,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void requestPermissions() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            startInstallation();
+            copyFiles();
             return;
         }
         ActivityCompat.requestPermissions(this,
@@ -113,201 +78,69 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkStatus() {
-        updateStatus("Pronto para instalar.\n\n" +
-                "1. Clique em 'Instalar' para copiar arquivos\n" +
-                "2. O Termux será aberto automaticamente\n" +
-                "3. Cole o comando que aparecerá");
+        updateStatus("Pronto para copiar arquivos.\n\n" +
+                "1. Clique em 'Copiar Arquivos'\n" +
+                "2. Os comandos aparecerão abaixo\n" +
+                "3. Copie e execute no Termux");
     }
 
-    private void startInstallation() {
+    private void copyFiles() {
         installButton.setEnabled(false);
-        updateStatus("Iniciando instalação...\n\nAguarde...");
+        updateStatus("Copiando arquivos...\n\nAguarde...");
 
         new Thread(() -> {
             try {
-                handler.post(() -> updateStatus("Copiando arquivos..."));
-                copyFilesToTermux();
+                // Copia para Download (acessível pelo Termux)
+                File targetDir = new File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                    "servidorzinho"
+                );
+                
+                if (!targetDir.exists()) {
+                    targetDir.mkdirs();
+                }
+
+                copyAssetsToDir(targetDir);
+
+                // Verifica se copiou
+                File testFile = new File(targetDir, "servidor_auto.py");
+                if (!testFile.exists()) {
+                    throw new Exception("Erro: Arquivos não foram copiados");
+                }
+
+                // Comandos simples para o usuário executar
+                String commands = 
+                    "# Passo 1: Configurar storage do Termux\n" +
+                    "termux-setup-storage\n\n" +
+                    "# Passo 2: Copiar arquivos\n" +
+                    "mkdir -p ~/servidorzinho\n" +
+                    "cp -r ~/storage/downloads/servidorzinho/* ~/servidorzinho/\n" +
+                    "cd ~/servidorzinho\n" +
+                    "chmod +x *.sh *.py\n\n" +
+                    "# Passo 3: Instalar dependências\n" +
+                    "bash INSTALAR_AUTO.sh\n\n" +
+                    "# Passo 4: Iniciar servidor\n" +
+                    "bash iniciar_auto.sh\n";
 
                 handler.post(() -> {
-                    updateStatus("✅ Arquivos copiados!\n\n" +
-                            "📱 O Termux será aberto automaticamente.\n\n" +
-                            "📋 Instruções:\n" +
-                            "1. O comando já foi copiado\n" +
-                            "2. No Termux, cole (Ctrl+Shift+V)\n" +
-                            "3. Pressione Enter\n" +
-                            "4. Aguarde a instalação (10-15 min)\n\n" +
-                            "💡 Não feche o Termux durante a instalação!");
-                    installButton.setText("Reinstalar");
+                    updateStatus("✅ Arquivos copiados para:\n" +
+                            "~/storage/downloads/servidorzinho\n\n" +
+                            "📋 Execute os comandos abaixo no Termux:");
+                    commandText.setText(commands);
+                    installButton.setText("Recopiar");
                     installButton.setEnabled(true);
                 });
-
-                // Abre Termux após 1 segundo
-                handler.postDelayed(() -> {
-                    openTermux();
-                }, 1000);
 
             } catch (Exception e) {
                 handler.post(() -> {
                     updateStatus("❌ Erro: " + e.getMessage() + "\n\n" +
-                            "Tente clicar em 'Instalar' novamente.");
+                            "Tente novamente.");
                     installButton.setEnabled(true);
                     Toast.makeText(this, "Erro: " + e.getMessage(),
                             Toast.LENGTH_LONG).show();
                 });
             }
         }).start();
-    }
-
-    private void openTermux() {
-        try {
-            Intent intent = getPackageManager().getLaunchIntentForPackage("com.termux");
-            if (intent != null) {
-                startActivity(intent);
-                updateStatus("✅ Termux aberto!\n\n" +
-                        "📋 Use os botões abaixo para copiar comandos\n" +
-                        "💡 Cole com Ctrl+Shift+V ou long press");
-            } else {
-                updateStatus("❌ Termux não encontrado!\n\n" +
-                        "Instale o Termux da Play Store primeiro.");
-                installTermux();
-            }
-        } catch (Exception e) {
-            updateStatus("❌ Erro ao abrir Termux: " + e.getMessage());
-        }
-    }
-
-    private void installTermux() {
-        try {
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setData(Uri.parse("market://details?id=com.termux"));
-            intent.setPackage("com.android.vending");
-            startActivity(intent);
-        } catch (Exception e) {
-            try {
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                intent.setData(Uri.parse("https://play.google.com/store/apps/details?id=com.termux"));
-                startActivity(intent);
-            } catch (Exception e2) {
-                updateStatus("⚠️ Não foi possível abrir a Play Store.\n\n" +
-                        "Instale o Termux manualmente:\n" +
-                        "https://play.google.com/store/apps/details?id=com.termux");
-            }
-        }
-    }
-
-    private void copyFilesToTermux() throws Exception {
-        // Tenta múltiplos locais acessíveis pelo Termux
-        File[] possibleDirs = {
-            new File(getExternalFilesDir(null), "servidorzinho"),
-            new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MRIT_Server")
-        };
-        
-        File targetDir = null;
-        String accessiblePath = null;
-        
-        // Tenta encontrar um diretório acessível
-        for (File dir : possibleDirs) {
-            try {
-                if (!dir.exists()) {
-                    dir.mkdirs();
-                }
-                if (dir.exists() && dir.canWrite()) {
-                    targetDir = dir;
-                    // Tenta encontrar o caminho acessível
-                    String absPath = dir.getAbsolutePath();
-                    // Converte para caminho acessível pelo Termux
-                    if (absPath.contains("/Android/data/")) {
-                        // Para Android 11+, usa caminho alternativo
-                        accessiblePath = "~/storage/downloads/MRIT_Server";
-                    } else if (absPath.contains("/Download")) {
-                        accessiblePath = "~/storage/downloads/MRIT_Server";
-                    } else {
-                        // Tenta usar o caminho direto
-                        accessiblePath = absPath;
-                    }
-                    break;
-                }
-            } catch (Exception e) {
-                android.util.Log.e("MainActivity", "Erro ao tentar diretório " + dir + ": " + e.getMessage());
-            }
-        }
-        
-        if (targetDir == null) {
-            // Fallback: usa Download
-            targetDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MRIT_Server");
-            targetDir.mkdirs();
-            accessiblePath = "~/storage/downloads/MRIT_Server";
-        }
-
-        copyAssetsToDir(targetDir);
-        
-        // Verifica se os arquivos foram copiados
-        File testFile = new File(targetDir, "servidor_auto.py");
-        if (!testFile.exists()) {
-            throw new Exception("Erro: Arquivos não foram copiados corretamente");
-        }
-
-        // Cria comando que funciona independente do caminho
-        // Usa um script que encontra os arquivos automaticamente
-        String installCommand = 
-            "termux-setup-storage 2>/dev/null || true\n" +
-            "sleep 1\n" +
-            "mkdir -p ~/servidorzinho\n" +
-            "if [ -d ~/storage/downloads/MRIT_Server ]; then\n" +
-            "  cp -r ~/storage/downloads/MRIT_Server/* ~/servidorzinho/ 2>/dev/null || true\n" +
-            "fi\n" +
-            "if [ ! -f ~/servidorzinho/servidor_auto.py ]; then\n" +
-            "  echo '❌ Erro: Arquivos não encontrados!'\n" +
-            "  echo 'Execute o app novamente e clique em Instalar'\n" +
-            "  exit 1\n" +
-            "fi\n" +
-            "cd ~/servidorzinho\n" +
-            "chmod +x *.sh *.py 2>/dev/null || true\n" +
-            "bash INSTALAR_AUTO.sh && bash iniciar_auto.sh";
-
-        handler.post(() -> copyToClipboard(installCommand));
-    }
-    
-
-    private void createSimpleCopyScript(File sourceDir) throws Exception {
-        // Cria script simples que copia tudo e instala
-        File scriptFile = new File(sourceDir, "setup.sh");
-        String scriptContent = "#!/bin/bash\n" +
-                "clear\n" +
-                "echo '╔══════════════════════════════════════╗'\n" +
-                "echo '║   CONFIGURANDO SERVIDORZINHO        ║'\n" +
-                "echo '╚══════════════════════════════════════╝'\n" +
-                "echo ''\n" +
-                "echo '📦 Copiando arquivos...'\n" +
-                "mkdir -p ~/servidorzinho\n" +
-                "SOURCE_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" +
-                "cp -r \"$SOURCE_DIR\"/* ~/servidorzinho/ 2>/dev/null || true\n" +
-                "rm ~/servidorzinho/setup.sh 2>/dev/null || true\n" +
-                "chmod +x ~/servidorzinho/*.sh 2>/dev/null || true\n" +
-                "chmod +x ~/servidorzinho/*.py 2>/dev/null || true\n" +
-                "echo '✅ Arquivos copiados!'\n" +
-                "echo ''\n" +
-                "cd ~/servidorzinho\n" +
-                "echo '📦 Instalando dependências...'\n" +
-                "echo '⏳ Isso pode demorar 10-15 minutos'\n" +
-                "echo '⏳ NÃO feche o Termux!'\n" +
-                "echo ''\n" +
-                "bash INSTALAR_AUTO.sh && {\n" +
-                "    echo ''\n" +
-                "    echo '🚀 Iniciando servidor...'\n" +
-                "    bash iniciar_auto.sh\n" +
-                "} || {\n" +
-                "    echo ''\n" +
-                "    echo '❌ Erro na instalação!'\n" +
-                "    echo 'Tente executar manualmente:'\n" +
-                "    echo '  cd ~/servidorzinho'\n" +
-                "    echo '  bash INSTALAR_AUTO.sh'\n" +
-                "}\n";
-
-        FileOutputStream fos = new FileOutputStream(scriptFile);
-        fos.write(scriptContent.getBytes());
-        fos.close();
-        scriptFile.setExecutable(true);
     }
 
     private void copyAssetsToDir(File targetDir) throws Exception {
@@ -361,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startInstallation();
+                copyFiles();
             } else {
                 Toast.makeText(this, "Permissão necessária", Toast.LENGTH_SHORT).show();
             }
