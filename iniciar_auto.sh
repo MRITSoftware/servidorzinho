@@ -26,18 +26,24 @@ fi
 # Verifica se tinytuya está instalado
 if ! python3 -c "import tinytuya" 2>/dev/null; then
     echo "⚠️  tinytuya não encontrado."
-    echo "📦 Instalando dependências de build (pode demorar alguns minutos)..."
-    pkg install -y rust binutils build-essential python-dev libffi-dev openssl-dev 2>/dev/null || true
-    echo "📚 Instalando cryptography..."
-    python3 -m pip install --no-cache-dir cryptography 2>&1 | tail -5
-    echo "📚 Instalando tinytuya..."
-    python3 -m pip install --no-cache-dir tinytuya 2>&1 | tail -5
-    if ! python3 -c "import tinytuya" 2>/dev/null; then
-        echo "❌ Erro ao instalar tinytuya"
-        echo "Execute: bash INSTALAR_AUTO.sh"
+    echo "📦 Executando instalação completa..."
+    echo "⏳ Isso pode demorar 10-15 minutos"
+    echo ""
+    
+    # Executa o script de instalação completo
+    if [ -f "INSTALAR_AUTO.sh" ]; then
+        bash INSTALAR_AUTO.sh
+        if ! python3 -c "import tinytuya" 2>/dev/null; then
+            echo ""
+            echo "❌ Erro: tinytuya ainda não está instalado"
+            echo "Execute manualmente: bash INSTALAR_AUTO.sh"
+            exit 1
+        fi
+    else
+        echo "❌ Erro: INSTALAR_AUTO.sh não encontrado"
+        echo "Execute: bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh"
         exit 1
     fi
-    echo "✅ tinytuya instalado com sucesso!"
 fi
 
 # Verifica se já está rodando

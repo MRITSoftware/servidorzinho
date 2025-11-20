@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
         copyStatusButton = findViewById(R.id.copyStatusButton);
         copyLogsButton = findViewById(R.id.copyLogsButton);
         clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        
+
         installButton.setOnClickListener(v -> {
             if (checkPermissions()) {
                 startInstallation();
@@ -53,29 +53,29 @@ public class MainActivity extends AppCompatActivity {
                 requestPermissions();
             }
         });
-        
+
         openTermuxButton.setOnClickListener(v -> {
             openTermuxAndInstall();
         });
-        
+
         copyInstallButton.setOnClickListener(v -> {
             copyToClipboard("bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh");
         });
-        
+
         copyStartButton.setOnClickListener(v -> {
             copyToClipboard("cd ~/servidorzinho && bash iniciar_auto.sh");
         });
-        
+
         copyStatusButton.setOnClickListener(v -> {
             copyToClipboard("cd ~/servidorzinho && bash testar_servidor.sh");
             updateStatus("✅ Comando copiado!\n\nCole no Termux para verificar o status.");
         });
-        
+
         copyLogsButton.setOnClickListener(v -> {
             copyToClipboard("cd ~/servidorzinho && tail -30 servidor.log");
             updateStatus("✅ Comando copiado!\n\nCole no Termux para ver os logs.");
         });
-        
+
         checkStatus();
     }
 
@@ -114,7 +114,7 @@ public class MainActivity extends AppCompatActivity {
             if (intent != null) {
                 return true;
             }
-            
+
             // Tenta verificar via PackageManager
             try {
                 getPackageManager().getPackageInfo("com.termux", PackageManager.GET_ACTIVITIES);
@@ -228,11 +228,11 @@ public class MainActivity extends AppCompatActivity {
     private void copyFilesToTermux() throws Exception {
         // Copia para storage compartilhado - múltiplos locais
         File[] targetDirs = {
-            new File("/sdcard/Download/MRIT_Server"),
-            new File("/storage/emulated/0/Download/MRIT_Server"),
-            new File(getExternalFilesDir(null), "servidorzinho")
+                new File("/sdcard/Download/MRIT_Server"),
+                new File("/storage/emulated/0/Download/MRIT_Server"),
+                new File(getExternalFilesDir(null), "servidorzinho")
         };
-        
+
         boolean copied = false;
         for (File dir : targetDirs) {
             try {
@@ -244,7 +244,7 @@ public class MainActivity extends AppCompatActivity {
                 android.util.Log.e("MainActivity", "Erro ao copiar para " + dir + ": " + e.getMessage());
             }
         }
-        
+
         if (!copied) {
             handler.post(() -> {
                 updateStatus("❌ Erro ao copiar arquivos.\n\n" +
@@ -252,7 +252,7 @@ public class MainActivity extends AppCompatActivity {
             });
             return;
         }
-        
+
         handler.post(() -> {
             updateStatus("✅ Arquivos copiados!\n\n" +
                     "📱 No Termux:\n" +
@@ -265,45 +265,53 @@ public class MainActivity extends AppCompatActivity {
     private void createTermuxCopyScript(File sourceDir) throws Exception {
         // Cria script que usa diretório atual (mais confiável)
         File scriptFile = new File(sourceDir, "copy_to_termux.sh");
-        String scriptContent = 
-            "#!/bin/bash\n" +
-            "set -e\n" +
-            "clear\n" +
-            "echo '╔══════════════════════════════════════╗'\n" +
-            "echo '║   MRIT Server Local - Instalação    ║'\n" +
-            "echo '╚══════════════════════════════════════╝'\n" +
-            "echo ''\n" +
-            "echo '📦 Passo 1/3: Copiando arquivos...'\n" +
-            "mkdir -p ~/servidorzinho\n" +
-            "SOURCE_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" +
-            "cp -r \"$SOURCE_DIR\"/* ~/servidorzinho/ 2>/dev/null || true\n" +
-            "rm ~/servidorzinho/copy_to_termux.sh 2>/dev/null || true\n" +
-            "chmod +x ~/servidorzinho/*.sh 2>/dev/null || true\n" +
-            "echo '✅ Arquivos copiados!'\n" +
-            "echo ''\n" +
+        String scriptContent = "#!/bin/bash\n" +
+                "set -e\n" +
+                "clear\n" +
+                "echo '╔══════════════════════════════════════╗'\n" +
+                "echo '║   MRIT Server Local - Instalação    ║'\n" +
+                "echo '╚══════════════════════════════════════╝'\n" +
+                "echo ''\n" +
+                "echo '📦 Passo 1/3: Copiando arquivos...'\n" +
+                "mkdir -p ~/servidorzinho\n" +
+                "SOURCE_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" +
+                "cp -r \"$SOURCE_DIR\"/* ~/servidorzinho/ 2>/dev/null || true\n" +
+                "rm ~/servidorzinho/copy_to_termux.sh 2>/dev/null || true\n" +
+                "chmod +x ~/servidorzinho/*.sh 2>/dev/null || true\n" +
+                "echo '✅ Arquivos copiados!'\n" +
+                "echo ''\n" +
             "cd ~/servidorzinho\n" +
             "if [ ! -f .installed ]; then\n" +
             "    echo '📦 Passo 2/3: Instalando dependências...'\n" +
             "    echo '⏳ Isso pode demorar 10-15 minutos'\n" +
-            "    echo '⏳ Por favor, aguarde...'\n" +
+            "    echo '⏳ Por favor, NÃO feche o Termux'\n" +
             "    echo ''\n" +
-            "    bash INSTALAR_AUTO.sh\n" +
+            "    bash INSTALAR_AUTO.sh || {\n" +
+            "        echo ''\n" +
+            "        echo '❌ Erro na instalação!'\n" +
+            "        echo 'Tente executar: bash INSTALAR_AUTO.sh'\n" +
+            "        exit 1\n" +
+            "    }\n" +
             "    echo ''\n" +
             "    echo '📦 Passo 3/3: Iniciando servidor...'\n" +
             "    bash iniciar_auto.sh\n" +
             "else\n" +
-            "    echo '📦 Passo 2/3: Servidor já instalado'\n" +
+            "    echo '📦 Passo 2/3: Verificando dependências...'\n" +
+            "    if ! python3 -c 'import tinytuya' 2>/dev/null; then\n" +
+            "        echo '⚠️  Dependências faltando. Reinstalando...'\n" +
+            "        bash INSTALAR_AUTO.sh\n" +
+            "    fi\n" +
             "    echo '📦 Passo 3/3: Iniciando servidor...'\n" +
             "    bash iniciar_auto.sh\n" +
             "fi\n" +
-            "echo ''\n" +
-            "echo '✅ Instalação completa!'\n" +
-            "echo ''\n" +
-            "echo '📌 Comandos úteis:'\n" +
-            "echo '   start   -> Inicia servidor'\n" +
-            "echo '   status  -> Verifica se está rodando'\n" +
-            "echo '   logs    -> Mostra logs'\n" +
-            "echo '   stop    -> Para servidor'\n";
+                "echo ''\n" +
+                "echo '✅ Instalação completa!'\n" +
+                "echo ''\n" +
+                "echo '📌 Comandos úteis:'\n" +
+                "echo '   start   -> Inicia servidor'\n" +
+                "echo '   status  -> Verifica se está rodando'\n" +
+                "echo '   logs    -> Mostra logs'\n" +
+                "echo '   stop    -> Para servidor'\n";
 
         FileOutputStream fos = new FileOutputStream(scriptFile);
         fos.write(scriptContent.getBytes());
@@ -380,7 +388,7 @@ public class MainActivity extends AppCompatActivity {
     private void log(String msg) {
         android.util.Log.d("Servidorzinho", msg);
     }
-    
+
     private void copyToClipboard(String text) {
         ClipData clip = ClipData.newPlainText("Comando", text);
         clipboard.setPrimaryClip(clip);
