@@ -247,11 +247,10 @@ public class MainActivity extends AppCompatActivity {
         
         handler.post(() -> {
             updateStatus("✅ Arquivos copiados!\n\n" +
-                    "📱 No Termux, execute:\n\n" +
-                    "cd ~/storage/downloads/MRIT_Server\n" +
-                    "bash copy_to_termux.sh\n\n" +
-                    "Se não funcionar, primeiro execute:\n" +
-                    "termux-setup-storage");
+                    "📱 No Termux:\n" +
+                    "1. Execute: termux-setup-storage\n" +
+                    "2. Clique no botão '📥 Copiar: Instalar' abaixo\n" +
+                    "3. Cole no Termux e pressione Enter");
         });
     }
 
