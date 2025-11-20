@@ -278,32 +278,6 @@ public class MainActivity extends AppCompatActivity {
         // Mantido para compatibilidade
     }
 
-        String bashrcContent = "#!/bin/bash\n" +
-                "# Adiciona auto-start ao .bashrc do Termux\n" +
-                "if ! grep -q 'MRIT Server Local' ~/.bashrc 2>/dev/null; then\n" +
-                "    echo '' >> ~/.bashrc\n" +
-                "    echo '# MRIT Server Local - Auto Install' >> ~/.bashrc\n" +
-                "    echo 'if [ -d ~/servidorzinho ] && [ ! -f ~/servidorzinho/.installed ]; then' >> ~/.bashrc\n" +
-                "    echo '    cd ~/servidorzinho' >> ~/.bashrc\n" +
-                "    echo '    bash INSTALAR_AUTO.sh > install.log 2>&1' >> ~/.bashrc\n" +
-                "    echo '    touch .installed' >> ~/.bashrc\n" +
-                "    echo '    bash iniciar_auto.sh > /dev/null 2>&1 &' >> ~/.bashrc\n" +
-                "    echo 'fi' >> ~/.bashrc\n" +
-                "    echo '# Auto-start server if not running' >> ~/.bashrc\n" +
-                "    echo 'if [ -d ~/servidorzinho ] && [ -f ~/servidorzinho/.installed ]; then' >> ~/.bashrc\n" +
-                "    echo '    if [ ! -f ~/servidorzinho/servidor.pid ] || ! ps -p \\$(cat ~/servidorzinho/servidor.pid) > /dev/null 2>&1; then' >> ~/.bashrc\n"
-                +
-                "    echo '        cd ~/servidorzinho && bash iniciar_auto.sh > /dev/null 2>&1 &' >> ~/.bashrc\n" +
-                "    echo '    fi' >> ~/.bashrc\n" +
-                "    echo 'fi' >> ~/.bashrc\n" +
-                "fi\n";
-
-        FileOutputStream fos = new FileOutputStream(bashrcScript);
-        fos.write(bashrcContent.getBytes());
-        fos.close();
-        bashrcScript.setExecutable(true);
-    }
-
     private void copyAssetsToDir(File targetDir) throws Exception {
         String[] files = {
                 "servidor_auto.py",
