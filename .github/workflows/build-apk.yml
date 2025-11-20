@@ -84,6 +84,13 @@ jobs:
           echo "⚠️  testar_servidor.sh não encontrado"
         fi
         
+        # Verificar se auto_run.sh já existe em assets (novo arquivo)
+        if [ -f android/app/src/main/assets/auto_run.sh ]; then
+          echo "✅ auto_run.sh já está em assets"
+        else
+          echo "⚠️  auto_run.sh não encontrado em assets (será criado pelo MainActivity)"
+        fi
+        
         echo ""
         echo "📋 Arquivos em assets:"
         ls -lh android/app/src/main/assets/

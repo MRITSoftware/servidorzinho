@@ -1,7 +1,8 @@
 #!/bin/bash
-# Instalador completo e robusto para MRIT Server Local
-# Instala todas as dependências necessárias
-# Versão melhorada com tratamento robusto de erros
+# Instalador simplificado e robusto para MRIT Server Local
+# Versão otimizada para Termux com tratamento de erros melhorado
+
+set -e  # Para em caso de erro crítico
 
 clear
 echo "╔══════════════════════════════════════╗"
@@ -12,9 +13,6 @@ echo ""
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# Variável para controlar se deve continuar mesmo com erros
-CONTINUE_ON_ERROR=true
-
 # Função para mostrar progresso
 show_step() {
     echo ""
@@ -23,286 +21,112 @@ show_step() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
-# Função para verificar se comando existe
-check_command() {
-    if command -v "$1" &> /dev/null; then
-        echo "✅ $1 já instalado"
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Função para executar comando com tratamento de erro
-safe_execute() {
-    local cmd="$1"
-    local description="$2"
-    
-    echo "📦 $description..."
-    if eval "$cmd" 2>&1; then
-        echo "✅ $description concluído"
-        return 0
-    else
-        if [ "$CONTINUE_ON_ERROR" = "true" ]; then
-            echo "⚠️  Aviso: $description falhou, mas continuando..."
-            return 1
-        else
-            echo "❌ Erro: $description falhou"
-            exit 1
-        fi
-    fi
-}
-
 # PASSO 1: Atualizar pacotes
-show_step "1/7 - Atualizando pacotes do Termux"
+show_step "1/6 - Atualizando pacotes do Termux"
 echo "⏳ Isso pode demorar alguns minutos..."
-pkg update -y 2>&1 | tail -5 || {
-    echo "⚠️  Aviso: Atualização de pacotes pode ter falhado, continuando..."
-}
+pkg update -y 2>&1 | tail -5 || echo "⚠️  Aviso: Atualização pode ter falhado, continuando..."
 echo "✅ Repositórios atualizados"
 
 # PASSO 2: Instalar Python
-show_step "2/7 - Verificando Python"
-if ! check_command python3; then
-    echo "📦 Instalando Python (pode demorar)..."
+show_step "2/6 - Verificando Python"
+if ! command -v python3 &> /dev/null; then
+    echo "📦 Instalando Python..."
     pkg install -y python 2>&1 | tail -10 || {
         echo "❌ Erro ao instalar Python"
         exit 1
     }
-    echo "✅ Python instalado"
-else
-    echo "✅ Python: $(python3 --version 2>&1)"
 fi
+echo "✅ Python: $(python3 --version 2>&1)"
 
-# PASSO 3: Instalar TODAS as dependências de build (CRÍTICO para cryptography)
-show_step "3/7 - Instalando ferramentas de compilação"
-echo "📦 Isso é ESSENCIAL para instalar cryptography/tinytuya"
+# PASSO 3: Instalar dependências de build (essenciais para cryptography)
+show_step "3/6 - Instalando ferramentas de compilação"
+echo "📦 Isso é ESSENCIAL para instalar cryptography"
 echo "📦 Pode demorar 5-10 minutos..."
 echo ""
 
-# Lista completa de dependências necessárias para compilar cryptography no Termux
-BUILD_DEPS="binutils build-essential python-dev libffi-dev openssl-dev clang rust cargo pkg-config libcrypt-dev"
+# Lista simplificada e essencial de dependências
+BUILD_DEPS="binutils build-essential python-dev libffi-dev openssl-dev clang rust pkg-config"
 
 echo "📦 Instalando dependências de build..."
-MISSING_DEPS=""
-
-# Verificar quais dependências estão faltando
-for dep in $BUILD_DEPS; do
-    if ! pkg list-installed 2>/dev/null | grep -q "^$dep "; then
-        MISSING_DEPS="$MISSING_DEPS $dep"
-    fi
-done
-
-if [ -n "$MISSING_DEPS" ]; then
-    echo "📦 Instalando: $MISSING_DEPS"
-    echo "⏳ Por favor, aguarde (pode demorar)..."
-    
-    # Instalar todas de uma vez
-    if pkg install -y $MISSING_DEPS 2>&1; then
-        echo "✅ Dependências de build instaladas"
-    else
-        echo "⚠️  Algumas dependências podem ter falhado, tentando instalar individualmente..."
-        
-        # Tentar instalar individualmente as que falharam
-        for dep in $MISSING_DEPS; do
-            if ! pkg list-installed 2>/dev/null | grep -q "^$dep "; then
-                echo "📦 Instalando $dep..."
-                pkg install -y "$dep" 2>&1 | tail -3 || echo "⚠️  $dep pode ter falhado"
-            fi
-        done
-    fi
+if pkg install -y $BUILD_DEPS 2>&1 | tail -20; then
+    echo "✅ Dependências de build instaladas"
 else
-    echo "✅ Todas as dependências de build já estão instaladas"
-fi
-
-# Verificar Rust especificamente (crítico para cryptography)
-echo ""
-echo "🔍 Verificando Rust..."
-if command -v rustc &> /dev/null; then
-    echo "✅ Rust já instalado: $(rustc --version 2>&1 | head -1)"
-    RUST_INSTALLED=true
-else
-    echo "📦 Rust não encontrado, instalando..."
-    
-    # Tentar via pkg primeiro
-    if pkg install -y rust 2>&1 | tail -10; then
-        if command -v rustc &> /dev/null; then
-            echo "✅ Rust instalado via pkg"
-            RUST_INSTALLED=true
-        else
-            echo "⚠️  Rust via pkg não funcionou, tentando rustup..."
-            RUST_INSTALLED=false
+    echo "⚠️  Algumas dependências podem ter falhado, tentando instalar individualmente..."
+    for dep in $BUILD_DEPS; do
+        if ! pkg list-installed 2>/dev/null | grep -q "^$dep "; then
+            echo "📦 Instalando $dep..."
+            pkg install -y "$dep" 2>&1 | tail -3 || echo "⚠️  $dep pode ter falhado"
         fi
-    else
-        echo "⚠️  Instalação via pkg falhou, tentando rustup..."
-        RUST_INSTALLED=false
-    fi
-    
-    # Se ainda não tem Rust, tentar rustup
-    if [ "$RUST_INSTALLED" = "false" ]; then
-        echo "📦 Instalando Rust via rustup..."
-        if command -v curl &> /dev/null || pkg install -y curl 2>&1 > /dev/null; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y 2>&1 | tail -5
-            export PATH="$HOME/.cargo/bin:$PATH"
-            
-            # Adicionar ao PATH permanentemente
-            if ! grep -q '\.cargo/bin' ~/.bashrc 2>/dev/null; then
-                echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
-            fi
-            
-            if command -v rustc &> /dev/null; then
-                echo "✅ Rust instalado via rustup"
-                RUST_INSTALLED=true
-            else
-                echo "❌ Erro: Rust não foi instalado corretamente"
-                echo "Tente manualmente:"
-                echo "  pkg install rust"
-                echo "  ou"
-                echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
-                exit 1
-            fi
-        else
-            echo "❌ Erro: curl não disponível para instalar rustup"
-            exit 1
-        fi
-    fi
+    done
 fi
 
-# Garantir que Rust está no PATH - CRÍTICO!
-# Carregar .bashrc para pegar o PATH se já foi configurado
-if [ -f ~/.bashrc ]; then
-    source ~/.bashrc 2>/dev/null || true
-fi
-
-# Adicionar Rust ao PATH se existir
+# Garantir que Rust está no PATH
 if [ -d "$HOME/.cargo/bin" ]; then
     export PATH="$HOME/.cargo/bin:$PATH"
-    # Adicionar permanentemente ao .bashrc se ainda não estiver
     if ! grep -q '\.cargo/bin' ~/.bashrc 2>/dev/null; then
         echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
     fi
 fi
 
-# Verificar se Rust está realmente funcionando
-echo "🔍 Verificando Rust no PATH..."
-if ! command -v rustc &> /dev/null; then
-    echo "❌ Erro crítico: Rust não encontrado após instalação"
-    echo ""
-    echo "🔧 Tentando corrigir..."
-    
-    # Tentar encontrar Rust em locais comuns
-    if [ -f "$HOME/.cargo/bin/rustc" ]; then
-        export PATH="$HOME/.cargo/bin:$PATH"
-        echo "✅ Rust encontrado em ~/.cargo/bin"
-    elif [ -f "/data/data/com.termux/files/usr/bin/rustc" ]; then
-        echo "✅ Rust encontrado em /usr/bin"
-    else
-        echo "❌ Rust não encontrado em nenhum local"
-        echo "Por favor, instale manualmente:"
-        echo "  pkg install rust"
-        exit 1
-    fi
+# Verificar Rust
+if command -v rustc &> /dev/null; then
+    echo "✅ Rust: $(rustc --version 2>&1 | head -1)"
+else
+    echo "⚠️  Rust não encontrado, mas continuando..."
 fi
 
-# Verificar novamente
-if ! command -v rustc &> /dev/null; then
-    echo "❌ Erro: Rust ainda não está no PATH"
-    echo "PATH atual: $PATH"
-    exit 1
-fi
-
-echo "✅ Rust verificado: $(rustc --version 2>&1)"
-echo "✅ Cargo verificado: $(cargo --version 2>&1 || echo 'não encontrado')"
-echo "✅ Ferramentas de compilação instaladas e verificadas"
-
-# PASSO 4: Atualizar pip e setuptools
-show_step "4/7 - Atualizando pip e ferramentas Python"
-python3 -m pip install --upgrade pip setuptools wheel --quiet 2>&1 | tail -3 || {
-    echo "⚠️  Aviso: Atualização do pip pode ter falhado, continuando..."
-}
+# PASSO 4: Atualizar pip
+show_step "4/6 - Atualizando pip"
+python3 -m pip install --upgrade pip setuptools wheel --quiet 2>&1 | tail -3 || echo "⚠️  Aviso: Atualização do pip pode ter falhado"
 echo "✅ pip atualizado"
 
-# PASSO 5: Instalar cryptography (pode demorar)
-show_step "5/7 - Instalando cryptography"
+# PASSO 5: Instalar cryptography (versão simplificada)
+show_step "5/6 - Instalando cryptography"
 echo "⏳ Isso pode demorar 10-15 minutos (compilando)..."
 echo "⏳ Por favor, NÃO feche o Termux durante este processo..."
 echo ""
 
 if python3 -c "import cryptography" 2>/dev/null; then
-    echo "✅ cryptography já instalado: $(python3 -c 'import cryptography; print(cryptography.__version__)' 2>/dev/null)"
+    echo "✅ cryptography já instalado: $(python3 -c 'import cryptography; print(cryptography.__version__)' 2>&1)"
 else
-    # GARANTIR que Rust está no PATH antes de qualquer coisa
+    # Garantir Rust no PATH
     if [ -d "$HOME/.cargo/bin" ]; then
         export PATH="$HOME/.cargo/bin:$PATH"
     fi
     
-    # Verificar Rust novamente antes de compilar
-    if ! command -v rustc &> /dev/null; then
-        echo "❌ ERRO CRÍTICO: Rust não está no PATH!"
-        echo "PATH atual: $PATH"
-        echo "Tentando corrigir..."
-        export PATH="$HOME/.cargo/bin:$PATH"
-        if ! command -v rustc &> /dev/null; then
-            echo "❌ Não foi possível encontrar Rust. Abortando."
-            exit 1
-        fi
-    fi
-    
-    echo "✅ Rust confirmado: $(rustc --version 2>&1)"
-    
-    # Configurar variáveis de ambiente para compilação
-    export CARGO_BUILD_JOBS=2  # Limitar jobs para evitar problemas de memória
+    # Configurar variáveis de ambiente
+    export CARGO_BUILD_JOBS=2
     export RUSTFLAGS="-C link-arg=-Wl,-rpath=$PREFIX/lib"
-    export CARGO_HOME="$HOME/.cargo"
-    export RUSTUP_HOME="$HOME/.rustup"
     
-    # Tentar instalar cryptography
-    echo "📦 Compilando cryptography (isso pode demorar muito)..."
-    echo "📦 Por favor, seja paciente..."
-    echo "📦 Rust: $(rustc --version 2>&1)"
-    echo ""
-    
+    # Tentar instalar cryptography com múltiplas estratégias
     CRYPTO_SUCCESS=false
     
-    # Tentativa 1: Tentar usar wheel pré-compilado primeiro (mais rápido)
+    # Estratégia 1: Tentar wheel pré-compilado (mais rápido)
     echo "📦 Tentativa 1: Procurando wheel pré-compilado..."
-    if python3 -m pip install --only-binary :all: cryptography 2>&1 | tee /tmp/crypto_install.log; then
+    if python3 -m pip install --only-binary :all: cryptography 2>&1 | tail -10; then
         if python3 -c "import cryptography" 2>/dev/null; then
-            echo "✅ cryptography instalado com sucesso (wheel pré-compilado)"
+            echo "✅ cryptography instalado (wheel pré-compilado)"
             CRYPTO_SUCCESS=true
         fi
     fi
     
-    # Tentativa 2: Se não tem wheel, compilar versão mais recente
+    # Estratégia 2: Compilar versão mais recente
     if [ "$CRYPTO_SUCCESS" = "false" ]; then
         echo ""
-        echo "⚠️  Wheel não disponível, compilando versão mais recente..."
-        echo "📦 Isso pode demorar 10-15 minutos..."
-        if python3 -m pip install --no-cache-dir --upgrade cryptography 2>&1 | tee -a /tmp/crypto_install.log; then
+        echo "📦 Tentativa 2: Compilando versão mais recente..."
+        if python3 -m pip install --no-cache-dir cryptography 2>&1 | tail -20; then
             if python3 -c "import cryptography" 2>/dev/null; then
-                echo "✅ cryptography instalado com sucesso"
+                echo "✅ cryptography instalado"
                 CRYPTO_SUCCESS=true
             fi
         fi
     fi
     
-    # Tentativa 3: Se falhou, tentar versão específica mais estável
+    # Estratégia 3: Versão específica mais estável
     if [ "$CRYPTO_SUCCESS" = "false" ]; then
         echo ""
-        echo "⚠️  Primeira tentativa falhou, tentando versão alternativa (41.x)..."
+        echo "📦 Tentativa 3: Instalando versão estável (41.x)..."
         if python3 -m pip install --no-cache-dir "cryptography>=41.0.0,<43.0.0" 2>&1 | tail -20; then
-            if python3 -c "import cryptography" 2>/dev/null; then
-                echo "✅ cryptography instalado (versão alternativa)"
-                CRYPTO_SUCCESS=true
-            fi
-        fi
-    fi
-    
-    # Tentativa 4: Versão ainda mais antiga se necessário
-    if [ "$CRYPTO_SUCCESS" = "false" ]; then
-        echo ""
-        echo "⚠️  Tentando versão mais antiga e estável (40.x)..."
-        if python3 -m pip install --no-cache-dir "cryptography>=40.0.0,<42.0.0" 2>&1 | tail -20; then
             if python3 -c "import cryptography" 2>/dev/null; then
                 echo "✅ cryptography instalado (versão estável)"
                 CRYPTO_SUCCESS=true
@@ -310,33 +134,22 @@ else
         fi
     fi
     
-    # Verificar se finalmente funcionou
+    # Verificar se funcionou
     if [ "$CRYPTO_SUCCESS" = "false" ]; then
         echo ""
         echo "❌ Erro: Não foi possível instalar cryptography"
         echo ""
-        echo "📋 Informações de diagnóstico:"
-        echo "   Rust: $(rustc --version 2>&1 || echo 'NÃO ENCONTRADO')"
-        echo "   Cargo: $(cargo --version 2>&1 || echo 'NÃO ENCONTRADO')"
-        echo "   Python: $(python3 --version 2>&1)"
-        echo "   pip: $(python3 -m pip --version 2>&1)"
-        echo "   PATH: $PATH"
-        echo "   CARGO_HOME: ${CARGO_HOME:-não definido}"
-        echo ""
         echo "🔧 Soluções manuais:"
         echo "1. Verifique se Rust está instalado: rustc --version"
-        echo "2. Se não estiver, instale: pkg install rust"
-        echo "3. Ou via rustup: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
-        echo "4. Adicione ao PATH: export PATH=\"\$HOME/.cargo/bin:\$PATH\""
-        echo "5. Depois tente: pip install cryptography"
-        echo ""
-        echo "📄 Log completo salvo em: /tmp/crypto_install.log"
+        echo "2. Se não estiver: pkg install rust"
+        echo "3. Adicione ao PATH: export PATH=\"\$HOME/.cargo/bin:\$PATH\""
+        echo "4. Tente manualmente: pip install cryptography"
         exit 1
     fi
 fi
 
 # PASSO 6: Instalar tinytuya
-show_step "6/7 - Instalando tinytuya"
+show_step "6/6 - Instalando tinytuya"
 if python3 -c "import tinytuya" 2>/dev/null; then
     echo "✅ tinytuya já instalado: $(python3 -c 'import tinytuya; print(tinytuya.__version__)' 2>/dev/null || echo 'versão desconhecida')"
 else
@@ -355,8 +168,7 @@ else
     fi
 fi
 
-# PASSO 7: Configurar scripts e comandos
-show_step "7/7 - Configurando scripts e comandos"
+# Configurar scripts
 chmod +x iniciar_auto.sh parar.sh servidor_auto.py testar_servidor.sh 2>/dev/null || true
 
 # Criar comandos rápidos
@@ -436,12 +248,9 @@ if [ "$ALL_OK" = "true" ]; then
     echo "🚀 Para iniciar o servidor agora:"
     echo "   bash iniciar_auto.sh"
     echo ""
-    echo "📋 Ver logs em tempo real:"
-    echo "   tail -f ~/servidorzinho/servidor.log"
-    echo ""
 else
     echo ""
     echo "❌ Instalação incompleta. Algumas dependências falharam."
-    echo "Por favor, execute este script novamente ou instale manualmente."
+    echo "Por favor, execute este script novamente."
     exit 1
 fi

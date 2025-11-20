@@ -55,23 +55,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
         openTermuxButton.setOnClickListener(v -> {
-            // Tenta abrir o Termux diretamente
-            try {
-                Intent intent = getPackageManager().getLaunchIntentForPackage("com.termux");
-                if (intent != null) {
-                    startActivity(intent);
-                    updateStatus("✅ Termux aberto!\n\n" +
-                            "📋 Agora você pode:\n" +
-                            "1. Usar os botões abaixo para copiar comandos\n" +
-                            "2. Colar no Termux e executar");
-                } else {
-                    updateStatus("❌ Termux não encontrado!\n\n" +
-                            "Por favor, instale o Termux da Play Store primeiro.");
-                    installTermux();
-                }
-            } catch (Exception e) {
-                updateStatus("❌ Erro ao abrir Termux: " + e.getMessage());
-            }
+            openTermux();
         });
 
         copyInstallButton.setOnClickListener(v -> {
@@ -226,6 +210,27 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
+    private void openTermux() {
+        // Tenta abrir o Termux diretamente
+        try {
+            Intent intent = getPackageManager().getLaunchIntentForPackage("com.termux");
+            if (intent != null) {
+                startActivity(intent);
+                updateStatus("✅ Termux aberto!\n\n" +
+                        "📋 Agora você pode:\n" +
+                        "1. Usar os botões abaixo para copiar comandos\n" +
+                        "2. Colar no Termux e executar\n\n" +
+                        "💡 Dica: Cole com Ctrl+Shift+V ou long press");
+            } else {
+                updateStatus("❌ Termux não encontrado!\n\n" +
+                        "Por favor, instale o Termux da Play Store primeiro.");
+                installTermux();
+            }
+        } catch (Exception e) {
+            updateStatus("❌ Erro ao abrir Termux: " + e.getMessage());
+        }
+    }
+
     private void installTermux() {
         // Tenta abrir Play Store de várias formas
         try {
@@ -288,6 +293,7 @@ public class MainActivity extends AppCompatActivity {
 
         boolean copied = false;
         String lastErrorMessage = null;
+        File copiedDir = null;
 
         for (File dir : targetDirs) {
             try {
@@ -299,7 +305,9 @@ public class MainActivity extends AppCompatActivity {
                 }
                 copyAssetsToDir(dir);
                 createTermuxCopyScript(dir);
+                createTermuxAutoRunScript(dir);
                 copied = true;
+                copiedDir = dir;
                 android.util.Log.d("MainActivity", "Arquivos copiados com sucesso para: " + dir.getAbsolutePath());
                 break; // Se conseguiu copiar, não precisa tentar outros
             } catch (Exception e) {
@@ -318,13 +326,35 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        // Copia comando para área de transferência
+        final File finalDir = copiedDir;
+        String installCommand = "if [ -f \"" + finalDir.getAbsolutePath() + "/copy_to_termux.sh\" ]; then\n" +
+                "  bash \"" + finalDir.getAbsolutePath() + "/copy_to_termux.sh\"\n" +
+                "elif [ -f ~/storage/downloads/MRIT_Server/copy_to_termux.sh ]; then\n" +
+                "  bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh\n" +
+                "elif [ -f ~/servidorzinho/INSTALAR_AUTO.sh ]; then\n" +
+                "  cd ~/servidorzinho && bash INSTALAR_AUTO.sh && bash iniciar_auto.sh\n" +
+                "else\n" +
+                "  echo '❌ Arquivos não encontrados! Execute o app novamente.'\n" +
+                "fi";
+
+        copyToClipboard(installCommand);
+
         handler.post(() -> {
             updateStatus("✅ Arquivos copiados!\n\n" +
-                    "📱 No Termux:\n" +
-                    "1. Execute: termux-setup-storage\n" +
-                    "2. Clique no botão '📥 Copiar: Instalar' abaixo\n" +
-                    "3. Cole no Termux e pressione Enter");
+                    "📱 O Termux será aberto automaticamente.\n\n" +
+                    "📋 Instruções:\n" +
+                    "1. O comando já foi copiado para área de transferência\n" +
+                    "2. No Termux, cole o comando (Ctrl+Shift+V ou long press)\n" +
+                    "3. Pressione Enter\n" +
+                    "4. Aguarde a instalação (10-15 minutos)\n\n" +
+                    "💡 Dica: Não feche o Termux durante a instalação!");
         });
+
+        // Abre o Termux automaticamente após 1 segundo
+        handler.postDelayed(() -> {
+            openTermux();
+        }, 1000);
     }
 
     private void createTermuxCopyScript(File sourceDir) throws Exception {
@@ -337,17 +367,32 @@ public class MainActivity extends AppCompatActivity {
                 "echo '║   MRIT Server Local - Instalação    ║'\n" +
                 "echo '╚══════════════════════════════════════╝'\n" +
                 "echo ''\n" +
-                "echo '📦 Passo 1/3: Copiando arquivos...'\n" +
+                "echo '📦 Passo 1/4: Copiando arquivos...'\n" +
                 "mkdir -p ~/servidorzinho\n" +
                 "SOURCE_DIR=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n" +
                 "cp -r \"$SOURCE_DIR\"/* ~/servidorzinho/ 2>/dev/null || true\n" +
                 "rm ~/servidorzinho/copy_to_termux.sh 2>/dev/null || true\n" +
                 "chmod +x ~/servidorzinho/*.sh 2>/dev/null || true\n" +
+                "chmod +x ~/servidorzinho/*.py 2>/dev/null || true\n" +
                 "echo '✅ Arquivos copiados!'\n" +
+                "echo ''\n" +
+                "echo '📦 Passo 2/4: Configurando inicialização automática...'\n" +
+                "cd ~/servidorzinho\n" +
+                "# Configura auto-run no .bashrc se ainda não estiver configurado\n" +
+                "if [ -f auto_run.sh ] && ! grep -q 'servidorzinho/auto_run.sh' ~/.bashrc 2>/dev/null; then\n" +
+                "    echo '' >> ~/.bashrc\n" +
+                "    echo '# Auto-inicia servidorzinho' >> ~/.bashrc\n" +
+                "    echo 'if [ -f ~/servidorzinho/auto_run.sh ]; then' >> ~/.bashrc\n" +
+                "    echo '    bash ~/servidorzinho/auto_run.sh' >> ~/.bashrc\n" +
+                "    echo 'fi' >> ~/.bashrc\n" +
+                "    echo '✅ Configuração automática ativada!'\n" +
+                "else\n" +
+                "    echo '✅ Já configurado'\n" +
+                "fi\n" +
                 "echo ''\n" +
                 "cd ~/servidorzinho\n" +
                 "if [ ! -f .installed ]; then\n" +
-                "    echo '📦 Passo 2/3: Instalando dependências...'\n" +
+                "    echo '📦 Passo 3/4: Instalando dependências...'\n" +
                 "    echo '⏳ Isso pode demorar 10-15 minutos'\n" +
                 "    echo '⏳ Por favor, NÃO feche o Termux'\n" +
                 "    echo ''\n" +
@@ -358,15 +403,15 @@ public class MainActivity extends AppCompatActivity {
                 "        exit 1\n" +
                 "    }\n" +
                 "    echo ''\n" +
-                "    echo '📦 Passo 3/3: Iniciando servidor...'\n" +
+                "    echo '📦 Passo 4/4: Iniciando servidor...'\n" +
                 "    bash iniciar_auto.sh\n" +
                 "else\n" +
-                "    echo '📦 Passo 2/3: Verificando dependências...'\n" +
+                "    echo '📦 Passo 3/4: Verificando dependências...'\n" +
                 "    if ! python3 -c 'import tinytuya' 2>/dev/null; then\n" +
                 "        echo '⚠️  Dependências faltando. Reinstalando...'\n" +
                 "        bash INSTALAR_AUTO.sh\n" +
                 "    fi\n" +
-                "    echo '📦 Passo 3/3: Iniciando servidor...'\n" +
+                "    echo '📦 Passo 4/4: Iniciando servidor...'\n" +
                 "    bash iniciar_auto.sh\n" +
                 "fi\n" +
                 "echo ''\n" +
@@ -376,7 +421,57 @@ public class MainActivity extends AppCompatActivity {
                 "echo '   start   -> Inicia servidor'\n" +
                 "echo '   status  -> Verifica se está rodando'\n" +
                 "echo '   logs    -> Mostra logs'\n" +
-                "echo '   stop    -> Para servidor'\n";
+                "echo '   stop    -> Para servidor'\n" +
+                "echo ''\n" +
+                "echo '💡 O servidor iniciará automaticamente quando você abrir o Termux!'";
+
+        FileOutputStream fos = new FileOutputStream(scriptFile);
+        fos.write(scriptContent.getBytes());
+        fos.close();
+        scriptFile.setExecutable(true);
+    }
+
+    private void createTermuxAutoRunScript(File sourceDir) throws Exception {
+        // Cria script que será executado automaticamente quando Termux abrir
+        // Este script será copiado para ~/.bashrc ou ~/.termux/boot
+        File scriptFile = new File(sourceDir, "auto_run.sh");
+        String scriptContent = "#!/bin/bash\n" +
+                "# Script de inicialização automática\n" +
+                "# Este script será executado quando o Termux abrir\n" +
+                "\n" +
+                "# Aguarda um pouco para garantir que tudo está pronto\n" +
+                "sleep 2\n" +
+                "\n" +
+                "# Verifica se já foi executado (evita loops)\n" +
+                "if [ -f ~/.servidorzinho_autorun_done ]; then\n" +
+                "    exit 0\n" +
+                "fi\n" +
+                "\n" +
+                "# Marca como executado\n" +
+                "touch ~/.servidorzinho_autorun_done\n" +
+                "\n" +
+                "# Verifica se os arquivos foram copiados\n" +
+                "if [ -f ~/servidorzinho/INSTALAR_AUTO.sh ]; then\n" +
+                "    cd ~/servidorzinho\n" +
+                "    \n" +
+                "    # Se não está instalado, instala\n" +
+                "    if [ ! -f .installed ]; then\n" +
+                "        echo '🚀 Iniciando instalação automática...'\n" +
+                "        bash INSTALAR_AUTO.sh && bash iniciar_auto.sh\n" +
+                "    else\n" +
+                "        # Verifica se dependências estão OK\n" +
+                "        if ! python3 -c 'import tinytuya' 2>/dev/null; then\n" +
+                "            echo '⚠️  Reinstalando dependências...'\n" +
+                "            bash INSTALAR_AUTO.sh\n" +
+                "        fi\n" +
+                "        \n" +
+                "        # Inicia servidor se não estiver rodando\n" +
+                "        if [ ! -f servidor.pid ] || ! ps -p $(cat servidor.pid) > /dev/null 2>&1; then\n" +
+                "            echo '🚀 Iniciando servidor...'\n" +
+                "            bash iniciar_auto.sh\n" +
+                "        fi\n" +
+                "    fi\n" +
+                "fi\n";
 
         FileOutputStream fos = new FileOutputStream(scriptFile);
         fos.write(scriptContent.getBytes());
@@ -397,7 +492,8 @@ public class MainActivity extends AppCompatActivity {
                 "INSTALAR_AUTO.sh",
                 "setup_boot.sh",
                 "requirements.txt",
-                "testar_servidor.sh"
+                "testar_servidor.sh",
+                "auto_run.sh"
         };
 
         for (String filename : files) {
