@@ -51,7 +51,8 @@ show_step "3/6 - Instalando ferramentas de compilação"
 echo "📦 Isso é necessário para instalar cryptography/tinytuya"
 echo "📦 Pode demorar alguns minutos..."
 
-BUILD_DEPS="rust binutils build-essential python-dev libffi-dev openssl-dev clang"
+# Instalar dependências básicas primeiro
+BUILD_DEPS="binutils build-essential python-dev libffi-dev openssl-dev clang"
 MISSING_DEPS=""
 
 for dep in $BUILD_DEPS; do
@@ -61,14 +62,41 @@ for dep in $BUILD_DEPS; do
 done
 
 if [ -n "$MISSING_DEPS" ]; then
-    echo "📦 Instalando: $MISSING_DEPS"
+    echo "📦 Instalando dependências básicas: $MISSING_DEPS"
     pkg install -y $MISSING_DEPS 2>&1 | grep -E "(Setting up|Unpacking|done)" || {
         echo "⚠️ Algumas dependências podem ter falhado, continuando..."
     }
-    echo "✅ Ferramentas de compilação instaladas"
-else
-    echo "✅ Todas as ferramentas já instaladas"
 fi
+
+# Instalar Rust separadamente e verificar
+echo "📦 Instalando Rust (necessário para cryptography)..."
+if command -v rustc &> /dev/null; then
+    echo "✅ Rust já instalado: $(rustc --version 2>&1 | head -1)"
+else
+    echo "📦 Instalando Rust via pkg..."
+    pkg install -y rust 2>&1 | grep -E "(Setting up|Unpacking|done)" || {
+        echo "⚠️ Tentando instalar Rust via rustup..."
+        if ! command -v rustc &> /dev/null; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            export PATH="$HOME/.cargo/bin:$PATH"
+            if ! command -v rustc &> /dev/null; then
+                echo "❌ Erro ao instalar Rust"
+                echo "Tente manualmente: pkg install rust"
+                exit 1
+            fi
+        fi
+    }
+    echo "✅ Rust instalado"
+fi
+
+# Verificar se Rust está funcionando
+if ! command -v rustc &> /dev/null; then
+    echo "❌ Rust não encontrado após instalação"
+    echo "Tente: pkg install rust"
+    exit 1
+fi
+
+echo "✅ Ferramentas de compilação instaladas"
 
 # PASSO 4: Atualizar pip
 show_step "4/6 - Atualizando pip"
@@ -83,9 +111,16 @@ echo "⏳ Por favor, aguarde..."
 if python3 -c "import cryptography" 2>/dev/null; then
     echo "✅ cryptography já instalado"
 else
+    # Garantir que Rust está no PATH
+    if [ -d "$HOME/.cargo/bin" ]; then
+        export PATH="$HOME/.cargo/bin:$PATH"
+    fi
+    
+    # Tentar instalar cryptography
+    echo "📦 Compilando cryptography (isso pode demorar)..."
     python3 -m pip install --no-cache-dir cryptography 2>&1 | while IFS= read -r line; do
         # Mostra apenas linhas importantes
-        if echo "$line" | grep -qE "(Collecting|Installing|Building|Successfully|ERROR|error)"; then
+        if echo "$line" | grep -qE "(Collecting|Installing|Building|Successfully|ERROR|error|rustc|Rust)"; then
             echo "   $line"
         fi
     done
@@ -94,8 +129,24 @@ else
         echo "✅ cryptography instalado com sucesso"
     else
         echo "❌ Erro ao instalar cryptography"
-        echo "Tente manualmente: pip install cryptography"
-        exit 1
+        echo ""
+        echo "Tentando alternativa: instalar versão mais antiga..."
+        python3 -m pip install --no-cache-dir "cryptography<42.0" 2>&1 | tail -5 || {
+            echo "❌ Falha na instalação alternativa também"
+            echo ""
+            echo "Soluções manuais:"
+            echo "1. Verifique se Rust está instalado: rustc --version"
+            echo "2. Tente: pkg install rust"
+            echo "3. Ou: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+            exit 1
+        }
+        
+        if python3 -c "import cryptography" 2>/dev/null; then
+            echo "✅ cryptography instalado (versão alternativa)"
+        else
+            echo "❌ Erro ao instalar cryptography"
+            exit 1
+        fi
     fi
 fi
 
