@@ -39,54 +39,54 @@
         android:id="@+id/openTermuxButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Abrir Termux e Instalar"
+        android:text="📱 Abrir Termux"
         android:textSize="16sp"
         android:padding="12dp"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginBottom="16dp" />
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="📋 Copiar Comandos:"
+        android:text="📋 Comandos Úteis (Copiar e Colar no Termux):"
         android:textSize="14sp"
         android:textStyle="bold"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="8dp" />
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="12dp" />
 
     <Button
         android:id="@+id/copyInstallButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="📥 Copiar: Instalar"
-        android:textSize="14sp"
-        android:padding="10dp"
-        android:layout_marginBottom="4dp" />
+        android:text="📥 1. Instalar Dependências"
+        android:textSize="15sp"
+        android:padding="14dp"
+        android:layout_marginBottom="8dp" />
 
     <Button
         android:id="@+id/copyStartButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="▶ Copiar: Iniciar"
-        android:textSize="14sp"
-        android:padding="10dp"
-        android:layout_marginBottom="4dp" />
+        android:text="▶ 2. Iniciar Servidor"
+        android:textSize="15sp"
+        android:padding="14dp"
+        android:layout_marginBottom="8dp" />
 
     <Button
         android:id="@+id/copyStatusButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="📊 Copiar: Status"
-        android:textSize="14sp"
-        android:padding="10dp"
-        android:layout_marginBottom="4dp" />
+        android:text="📊 3. Verificar Status"
+        android:textSize="15sp"
+        android:padding="14dp"
+        android:layout_marginBottom="8dp" />
 
     <Button
         android:id="@+id/copyLogsButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="📋 Copiar: Ver Logs"
-        android:textSize="14sp"
-        android:padding="10dp"
+        android:text="📋 4. Ver Logs"
+        android:textSize="15sp"
+        android:padding="14dp"
         android:layout_marginBottom="16dp" />
 
     <TextView

@@ -55,25 +55,67 @@ public class MainActivity extends AppCompatActivity {
         });
 
         openTermuxButton.setOnClickListener(v -> {
-            openTermuxAndInstall();
+            // Tenta abrir o Termux diretamente
+            try {
+                Intent intent = getPackageManager().getLaunchIntentForPackage("com.termux");
+                if (intent != null) {
+                    startActivity(intent);
+                    updateStatus("✅ Termux aberto!\n\n" +
+                            "📋 Agora você pode:\n" +
+                            "1. Usar os botões abaixo para copiar comandos\n" +
+                            "2. Colar no Termux e executar");
+                } else {
+                    updateStatus("❌ Termux não encontrado!\n\n" +
+                            "Por favor, instale o Termux da Play Store primeiro.");
+                    installTermux();
+                }
+            } catch (Exception e) {
+                updateStatus("❌ Erro ao abrir Termux: " + e.getMessage());
+            }
         });
 
         copyInstallButton.setOnClickListener(v -> {
-            copyToClipboard("bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh");
+            // Tenta múltiplos caminhos possíveis
+            String installCmd = "if [ -f ~/storage/downloads/MRIT_Server/copy_to_termux.sh ]; then\n" +
+                    "  bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh\n" +
+                    "elif [ -f ~/servidorzinho/INSTALAR_AUTO.sh ]; then\n" +
+                    "  cd ~/servidorzinho && bash INSTALAR_AUTO.sh\n" +
+                    "else\n" +
+                    "  echo '❌ Arquivos não encontrados! Execute o app novamente.'\n" +
+                    "fi";
+            copyToClipboard(installCmd);
+            updateStatus("✅ Comando de instalação copiado!\n\n" +
+                    "📱 No Termux:\n" +
+                    "1. Cole o comando\n" +
+                    "2. Pressione Enter\n" +
+                    "3. Aguarde a instalação (5-15 min)");
         });
 
         copyStartButton.setOnClickListener(v -> {
             copyToClipboard("cd ~/servidorzinho && bash iniciar_auto.sh");
+            updateStatus("✅ Comando copiado!\n\n" +
+                    "📱 No Termux:\n" +
+                    "1. Cole o comando\n" +
+                    "2. Pressione Enter\n" +
+                    "3. O servidor iniciará em background");
         });
 
         copyStatusButton.setOnClickListener(v -> {
             copyToClipboard("cd ~/servidorzinho && bash testar_servidor.sh");
-            updateStatus("✅ Comando copiado!\n\nCole no Termux para verificar o status.");
+            updateStatus("✅ Comando copiado!\n\n" +
+                    "📱 No Termux:\n" +
+                    "1. Cole o comando\n" +
+                    "2. Pressione Enter\n" +
+                    "3. Verá o status completo do servidor");
         });
 
         copyLogsButton.setOnClickListener(v -> {
             copyToClipboard("cd ~/servidorzinho && tail -30 servidor.log");
-            updateStatus("✅ Comando copiado!\n\nCole no Termux para ver os logs.");
+            updateStatus("✅ Comando copiado!\n\n" +
+                    "📱 No Termux:\n" +
+                    "1. Cole o comando\n" +
+                    "2. Pressione Enter\n" +
+                    "3. Verá os últimos 30 logs");
         });
 
         checkStatus();
@@ -246,7 +288,7 @@ public class MainActivity extends AppCompatActivity {
 
         boolean copied = false;
         String lastErrorMessage = null;
-        
+
         for (File dir : targetDirs) {
             try {
                 if (!dir.exists()) {
@@ -415,7 +457,7 @@ public class MainActivity extends AppCompatActivity {
     private void copyToClipboard(String text) {
         ClipData clip = ClipData.newPlainText("Comando", text);
         clipboard.setPrimaryClip(clip);
-        Toast.makeText(this, "✅ Comando copiado!", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "✅ Comando copiado para área de transferência!", Toast.LENGTH_LONG).show();
     }
 
     private void updateStatus(String text) {
