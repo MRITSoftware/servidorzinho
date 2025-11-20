@@ -67,7 +67,13 @@ public class MainActivity extends AppCompatActivity {
         });
         
         copyStatusButton.setOnClickListener(v -> {
-            copyToClipboard("ps aux | grep servidor_auto | grep -v grep");
+            copyToClipboard("cd ~/servidorzinho && bash testar_servidor.sh");
+            updateStatus("✅ Comando copiado!\n\nCole no Termux para verificar o status.");
+        });
+        
+        copyLogsButton.setOnClickListener(v -> {
+            copyToClipboard("cd ~/servidorzinho && tail -30 servidor.log");
+            updateStatus("✅ Comando copiado!\n\nCole no Termux para ver os logs.");
         });
         
         checkStatus();
