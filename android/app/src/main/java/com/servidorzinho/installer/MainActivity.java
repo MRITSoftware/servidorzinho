@@ -1,5 +1,8 @@
 package com.servidorzinho.installer;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -21,7 +24,11 @@ public class MainActivity extends AppCompatActivity {
     private TextView statusText;
     private Button installButton;
     private Button openTermuxButton;
+    private Button copyInstallButton;
+    private Button copyStartButton;
+    private Button copyStatusButton;
     private Handler handler;
+    private ClipboardManager clipboard;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,7 +39,11 @@ public class MainActivity extends AppCompatActivity {
         statusText = findViewById(R.id.statusText);
         installButton = findViewById(R.id.installButton);
         openTermuxButton = findViewById(R.id.openTermuxButton);
-
+        copyInstallButton = findViewById(R.id.copyInstallButton);
+        copyStartButton = findViewById(R.id.copyStartButton);
+        copyStatusButton = findViewById(R.id.copyStatusButton);
+        clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        
         installButton.setOnClickListener(v -> {
             if (checkPermissions()) {
                 startInstallation();
@@ -40,11 +51,23 @@ public class MainActivity extends AppCompatActivity {
                 requestPermissions();
             }
         });
-
+        
         openTermuxButton.setOnClickListener(v -> {
             openTermuxAndInstall();
         });
-
+        
+        copyInstallButton.setOnClickListener(v -> {
+            copyToClipboard("bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh");
+        });
+        
+        copyStartButton.setOnClickListener(v -> {
+            copyToClipboard("cd ~/servidorzinho && bash iniciar_auto.sh");
+        });
+        
+        copyStatusButton.setOnClickListener(v -> {
+            copyToClipboard("ps aux | grep servidor_auto | grep -v grep");
+        });
+        
         checkStatus();
     }
 
@@ -343,6 +366,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void log(String msg) {
         android.util.Log.d("Servidorzinho", msg);
+    }
+    
+    private void copyToClipboard(String text) {
+        ClipData clip = ClipData.newPlainText("Comando", text);
+        clipboard.setPrimaryClip(clip);
+        Toast.makeText(this, "✅ Comando copiado!", Toast.LENGTH_SHORT).show();
     }
 
     private void updateStatus(String text) {

@@ -42,6 +42,42 @@
         android:text="Abrir Termux e Instalar"
         android:textSize="16sp"
         android:padding="12dp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="📋 Copiar Comandos:"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp" />
+
+    <Button
+        android:id="@+id/copyInstallButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="📥 Copiar: Instalar"
+        android:textSize="14sp"
+        android:padding="10dp"
+        android:layout_marginBottom="4dp" />
+
+    <Button
+        android:id="@+id/copyStartButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="▶ Copiar: Iniciar"
+        android:textSize="14sp"
+        android:padding="10dp"
+        android:layout_marginBottom="4dp" />
+
+    <Button
+        android:id="@+id/copyStatusButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="📊 Copiar: Status"
+        android:textSize="14sp"
+        android:padding="10dp"
         android:layout_marginBottom="16dp" />
 
     <TextView
