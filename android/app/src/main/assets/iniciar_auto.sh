@@ -1,125 +1,89 @@
 #!/bin/bash
-# Script para iniciar o servidor em modo automático
-# Roda em background e se reinicia automaticamente
+# Script ULTRA SIMPLES para iniciar o servidor - foca em fazer funcionar
 
-# Vai para ~/servidorzinho (onde os arquivos devem estar)
+# Ir para o diretório
 cd ~/servidorzinho 2>/dev/null || {
     echo "❌ Erro: Pasta ~/servidorzinho não encontrada!"
-    echo "Execute primeiro: bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh"
     exit 1
 }
 
-# Verifica se servidor_auto.py existe
+# Verificar se arquivo existe
 if [ ! -f "servidor_auto.py" ]; then
-    echo "❌ Erro: servidor_auto.py não encontrado em ~/servidorzinho"
-    echo "Execute: bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh"
+    echo "❌ Erro: servidor_auto.py não encontrado!"
     exit 1
 fi
 
-# Verifica se Python está instalado
+# Verificar Python
 if ! command -v python3 &> /dev/null; then
     echo "❌ Erro: Python3 não encontrado!"
     echo "Execute: bash INSTALAR_AUTO.sh"
     exit 1
 fi
 
-# Verifica se tinytuya está instalado
+# Verificar dependências
 if ! python3 -c "import tinytuya" 2>/dev/null; then
-    echo "⚠️  tinytuya não encontrado."
-    echo "📦 Executando instalação completa..."
-    echo "⏳ Isso pode demorar 10-15 minutos"
-    echo ""
-    
-    # Executa o script de instalação completo
-    if [ -f "INSTALAR_AUTO.sh" ]; then
-        bash INSTALAR_AUTO.sh
-        if ! python3 -c "import tinytuya" 2>/dev/null; then
-            echo ""
-            echo "❌ Erro: tinytuya ainda não está instalado"
-            echo "Execute manualmente: bash INSTALAR_AUTO.sh"
-            exit 1
-        fi
-    else
-        echo "❌ Erro: INSTALAR_AUTO.sh não encontrado"
-        echo "Execute: bash ~/storage/downloads/MRIT_Server/copy_to_termux.sh"
+    echo "⚠️  Dependências não instaladas. Instalando..."
+    bash INSTALAR_AUTO.sh || {
+        echo "❌ Erro na instalação"
         exit 1
-    fi
+    }
 fi
 
-# Verifica se já está rodando
+# Parar servidor antigo se existir
 if [ -f "servidor.pid" ]; then
     OLD_PID=$(cat servidor.pid)
     if ps -p "$OLD_PID" > /dev/null 2>&1; then
-        echo "⚠️  Servidor já está rodando (PID: $OLD_PID)"
-        exit 0
-    else
-        rm -f servidor.pid
+        echo "⚠️  Parando servidor antigo (PID: $OLD_PID)..."
+        kill "$OLD_PID" 2>/dev/null || true
+        sleep 1
     fi
+    rm -f servidor.pid
 fi
 
-# Inicia em background e salva logs
-echo "Iniciando servidor..."
-echo "📋 Logs serão salvos em: servidor.log"
+# Limpar processos antigos
+pkill -f "servidor_auto.py" 2>/dev/null || true
+sleep 1
+
+# Iniciar servidor
+echo "🚀 Iniciando servidor..."
+echo "📋 Logs em: servidor.log"
 echo ""
 
-# Testa primeiro se consegue importar
-echo "Verificando se servidor pode iniciar..."
-python3 -c "import servidor_auto" 2>&1 | tee -a servidor.log
-if [ ${PIPESTATUS[0]} -ne 0 ]; then
-    echo ""
-    echo "❌ Erro: Não foi possível importar servidor_auto.py"
-    echo "📋 Erro completo:"
-    python3 -c "import servidor_auto" 2>&1
-    exit 1
-fi
-
-# Agora tenta iniciar
-python3 servidor_auto.py >> servidor.log 2>&1 &
+# Executar em background
+nohup python3 servidor_auto.py > servidor.log 2>&1 &
 NEW_PID=$!
 
-# Aguarda um momento
-sleep 2
-
-# Verifica se o processo ainda existe
-if ! ps -p "$NEW_PID" > /dev/null 2>&1; then
-    echo "❌ Erro: Servidor parou imediatamente!"
-    echo ""
-    echo "📋 Últimas linhas do log:"
-    if [ -f servidor.log ]; then
-        tail -30 servidor.log
-    else
-        echo "Log não foi criado - servidor crashou antes de escrever"
-    fi
-    echo ""
-    echo "🔍 Testando execução direta para ver erro:"
-    python3 servidor_auto.py 2>&1 | head -20
-    rm -f servidor.pid
-    exit 1
-fi
-
+# Salvar PID
 echo "$NEW_PID" > servidor.pid
 
-# Aguarda mais um pouco para o servidor inicializar
-sleep 2
+# Aguardar inicialização
+sleep 3
 
-# Verifica novamente
+# Verificar se está rodando
 if ps -p "$NEW_PID" > /dev/null 2>&1; then
-    # Testa se o servidor HTTP está respondendo
+    echo "✅ Servidor iniciado! (PID: $NEW_PID)"
+    echo ""
+    echo "📋 Ver logs: tail -f servidor.log"
+    echo "🛑 Parar: kill $NEW_PID"
+    echo "🌐 Testar: curl http://localhost:8080/status"
+    echo ""
+    
+    # Tentar verificar se está respondendo
+    sleep 2
     if curl -s http://localhost:8080/status > /dev/null 2>&1; then
-        echo "✅ Servidor iniciado e respondendo (PID: $NEW_PID)"
-        echo "📋 Logs: tail -f servidor.log"
-        echo "🛑 Parar: kill $NEW_PID"
-        echo "🌐 Status: curl http://localhost:8080/status"
+        echo "✅ Servidor respondendo corretamente!"
     else
-        echo "⚠️  Processo rodando mas servidor não responde ainda"
-        echo "📋 Verifique logs: tail -20 servidor.log"
-        echo "🛑 Parar: kill $NEW_PID"
+        echo "⚠️  Servidor iniciado mas ainda não está respondendo"
+        echo "   Aguarde alguns segundos e verifique os logs"
     fi
 else
-    echo "❌ Erro: Servidor parou após iniciar!"
+    echo "❌ Erro: Servidor não iniciou!"
+    echo ""
     echo "📋 Últimas linhas do log:"
-    tail -30 servidor.log
+    tail -20 servidor.log 2>/dev/null || echo "Log não encontrado"
+    echo ""
+    echo "🔍 Testando execução direta:"
+    python3 servidor_auto.py 2>&1 | head -30
     rm -f servidor.pid
     exit 1
 fi
-
