@@ -310,7 +310,8 @@ public class MainActivity extends AppCompatActivity {
                 "parar.sh",
                 "INSTALAR_AUTO.sh",
                 "setup_boot.sh",
-                "requirements.txt"
+                "requirements.txt",
+                "testar_servidor.sh"
         };
 
         for (String filename : files) {
